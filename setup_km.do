@@ -5,8 +5,9 @@ global homedir "G:\Other computers\My Laptop\Documents"
 global code "$homedir/GitHub/fertility"
 
 * This locations of folders containing the original data files
-global PSID "/data/PSID" // PSID main data
+global PSID "$homedir/Research Projects/Data/PSID" // PSID main data
 global states "$homedir/Dissertation/Policy data/Structural support measure" // structural support variable
+global fam_history "$homedir/Research Projects/Data/PSID - Family Files" 
 
 * Note that these directories will contain all "created" files - including intermediate data, results, and log files.
 
