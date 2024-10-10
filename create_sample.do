@@ -340,4 +340,41 @@ save "$temp\all_couples.dta", replace // let's save a version here, again with A
 tab in_birth_history, m // good news is bc of time period, i have history for all of them which should help with the timing / sample part
 tab in_birth_history_sp, m
 
-browse unique_id partner_id survey_yr rel_start_yr NUM_CHILDREN_ cah_child_birth_yr1_ref cah_child_birth_yr1_sp joint_first_birth first_birth_together first_birth_use_ref first_birth_use_sp
+tab NUM_BIRTHS, m
+tab NUM_BIRTHS if cah_child_birth_yr1_ref>9000, m // so thee are people without births, so they are eligible
+
+
+// remove if first birth prior to relationship start - either or both?! well probably either if my outcome will be joint first birth? because if either had a birth prior to the relationship, they are no longer eligible for a joint first birth...
+gen first_birth_prior=0
+replace first_birth_prior= 1 if cah_child_birth_yr1_ref<rel_start_yr | cah_child_birth_yr1_sp<rel_start_yr
+
+tab first_birth_prior joint_first_birth // yes confirms that they can't have a joint first birth if either one had a birth prior
+
+browse unique_id partner_id survey_yr rel_start_yr first_birth_prior NUM_BIRTHS NUM_CHILDREN_ cah_child_birth_yr1_ref cah_child_birth_yr1_sp joint_first_birth first_birth_together first_birth_use_ref first_birth_use_sp
+
+drop if first_birth_prior==1
+tab first_birth_use_ref first_birth_use_sp, m
+
+// should I also drop if the first birth year is not the same for the partners?
+gen joint_first_birth_year=.
+replace joint_first_birth_year = cah_child_birth_yr1_ref if cah_child_birth_yr1_ref==cah_child_birth_yr1_sp
+
+inspect joint_first_birth_year // about 5% missing
+drop if joint_first_birth_year==.
+
+// then remove all years AFTER the transition year - but okay what if no transition? that will still work bc it's 9999? so the survey year will never be greater than?
+browse unique_id partner_id survey_yr rel_start_yr first_birth_together joint_first_birth joint_first_birth_year NUM_CHILDREN_ NUM_BIRTHS
+tab joint_first_birth, m
+
+gen censored=0
+replace censored=1 if survey_yr > joint_first_birth_year
+tab censored joint_first_birth, row m // want to make sure I waon't accidentally drop any observed transitions.
+
+drop if censored==1
+
+save "$created_data/PSID_first_birth_sample.dta", replace
+
+********************************************************************************
+**# SECOND BIRTH SAMPLE
+********************************************************************************
+use "$temp\all_couples.dta", clear // okay back to file with all couples
