@@ -178,8 +178,27 @@ browse FIRST_BIRTH_YR cah_child_birth_yr*_ref if check==0
 
 **These seem wrong for some reason and I want to create for both ref and partner
 drop had_birth had_first_birth had_first_birth_alt
-
 sort unique_id wave
+
+// okay NEW problem, what if birth happens in an off year when the survey is biennial? right now, acting like no birth, but that is not right... GAH. add one to all of those? (basically if it's after 1997 and even year? so if birth is in 1998, let's record in 1999. OR should I record in 1997 because then we can say that is like "conception" so might not even need to lag the HH indicators?) okay also think about this gah. first let's create a flag to understand how many births, in general, are in off years
+
+forvalues b=1/20{
+	gen birth_yr_ref`b'_off=0
+	replace birth_yr_ref`b'_off=1 if inlist(cah_child_birth_yr`b'_ref,1998,2000,2002,2004,2006,2008,2010,2012,2014,2016,2018,2020)
+	
+	gen birth_yr_sp`b'_off=0 
+	replace birth_yr_sp`b'_off=1 if inlist(cah_child_birth_yr`b'_sp,1998,2000,2002,2004,2006,2008,2010,2012,2014,2016,2018,2020)
+}
+
+forvalues b=1/20{
+	gen birth_yr_ref`b'_adj=.
+	replace birth_yr_ref`b'_adj = cah_child_birth_yr`b'_ref if birth_yr_ref`b'_off==0
+	replace birth_yr_ref`b'_adj = (cah_child_birth_yr`b'_ref - 1) if birth_yr_ref`b'_off==1
+	
+	gen birth_yr_sp`b'_adj=.
+	replace birth_yr_sp`b'_adj = cah_child_birth_yr`b'_sp if birth_yr_sp`b'_off==0
+	replace birth_yr_sp`b'_adj = (cah_child_birth_yr`b'_sp - 1) if birth_yr_sp`b'_off==1
+}
 
 // any births
 gen had_birth_ref=0
@@ -190,14 +209,22 @@ forvalues b=1/20{
 	replace had_birth_alt_ref=1 if survey_yr==cah_child_birth_yr`b'_ref // so if survey year matches any of the birth dates
 }
 
+gen had_birth_test_ref=0
+forvalues b=1/20{
+	replace had_birth_test_ref=1 if survey_yr==birth_yr_ref`b'_adj // so if survey year matches any of the birth dates, adjusted for non-survey years
+}
+
 tab had_birth_ref had_birth_alt_ref
+tab had_birth_ref had_birth_test_ref
+
+browse unique_id survey_yr had_birth_ref had_birth_alt_ref had_birth_test_ref cah_child_birth_yr*_ref
 
 gen had_birth_sp=0
 replace had_birth_sp=1 if NUM_CHILDREN_ == NUM_CHILDREN_[_n-1]+1 & AGE_YOUNG_CHILD_==1 & partner_id==partner_id[_n-1] & wave==wave[_n-1]+1 // assuming if the partner is in the household, the birth is shared across the two of them
 
 gen had_birth_alt_sp=0
 forvalues b=1/20{
-	replace had_birth_alt_sp=1 if survey_yr==cah_child_birth_yr`b'_sp // so if survey year matches any of the birth dates
+	replace had_birth_alt_sp=1 if survey_yr==birth_yr_sp`b'_adj // so if survey year matches any of the birth dates
 }
 
 tab had_birth_sp had_birth_alt_sp
@@ -209,13 +236,13 @@ tab had_birth_alt_ref had_birth_alt_sp
 // replace had_first_birth_ref=1 if had_birth_ref==1 & (survey_yr==cah_child_birth_yr1_ref | survey_yr==cah_child_birth_yr1_ref+1) // think sometimes recorded a year late
 
 gen had_first_birth_ref=0
-replace had_first_birth_ref=1 if (survey_yr==cah_child_birth_yr1_ref)
+replace had_first_birth_ref=1 if (survey_yr==birth_yr_ref1_adj)
 
 gen had_first_birth_alt_ref=0
 replace had_first_birth_alt_ref=1 if NUM_CHILDREN_==1 & NUM_CHILDREN_[_n-1]==0 & AGE_YOUNG_CHILD_==1 & unique_id==unique_id[_n-1] & wave==wave[_n-1]+1
 
 gen had_first_birth_sp=0
-replace had_first_birth_sp=1 if (survey_yr==cah_child_birth_yr1_sp)
+replace had_first_birth_sp=1 if (survey_yr==birth_yr_sp1_adj)
 
 gen had_first_birth_alt_sp=0
 replace had_first_birth_alt_sp=1 if NUM_CHILDREN_==1 & NUM_CHILDREN_[_n-1]==0 & AGE_YOUNG_CHILD_==1 & partner_id==partner_id[_n-1] & wave==wave[_n-1]+1
@@ -229,7 +256,7 @@ replace first_birth_use_ref = had_first_birth_alt_ref if in_birth_history==0 // 
 tab first_birth_use_ref, m
 
 gen birth_use_ref=.
-replace birth_use_ref = had_birth_alt_ref if in_birth_history==1
+replace birth_use_ref = had_birth_test_ref if in_birth_history==1
 replace birth_use_ref = had_birth_ref if in_birth_history==0
 tab birth_use_ref, m
 
@@ -249,7 +276,7 @@ tab first_birth_use_ref first_birth_use_sp, m // so this is the thing - do I nee
 browse unique_id survey_yr in_birth_history NUM_CHILDREN_ AGE_YOUNG_CHILD_ first_birth_use_ref cah_child_birth_yr1_ref first_birth_use_sp cah_child_birth_yr1_sp
 
 gen joint_first_birth=0
-replace joint_first_birth=1 if first_birth_use_ref==1 & first_birth_use_sp==1 & cah_child_birth_yr1_ref==cah_child_birth_yr1_sp & in_birth_history==1 & in_birth_history_sp==1
+replace joint_first_birth=1 if first_birth_use_ref==1 & first_birth_use_sp==1 & birth_yr_ref1_adj==birth_yr_sp1_adj & in_birth_history==1 & in_birth_history_sp==1
 replace joint_first_birth=1 if first_birth_use_ref==1 & first_birth_use_sp==1 & in_birth_history==0 & in_birth_history_sp==0
 replace joint_first_birth=1 if first_birth_use_ref==1 & first_birth_use_sp==1 & ((in_birth_history==0 & in_birth_history_sp==1) | (in_birth_history==1 & in_birth_history_sp==0))
 
@@ -329,6 +356,14 @@ drop if _merge==2
 tab year _merge
 drop _merge
 
+// quick recode
+sort unique_id wave 
+
+gen earn_housework_lag=.
+replace earn_housework_lag=earn_housework[_n-1] if unique_id==unique_id[_n-1] & wave==wave[_n-1]+1
+// label define earn_housework 1 "Egal" 2 "Second Shift" 3 "Traditional" 4 "Counter Traditional" 5 "All others"
+label values earn_housework_lag earn_housework
+
 // do I need to censor after a birth?! do I need TWO samples - one for first birth, one for not first?
 save "$temp\all_couples.dta", replace // let's save a version here, again with ALL couples, then make a first birth only sample?
 
@@ -343,7 +378,6 @@ tab in_birth_history_sp, m
 tab NUM_BIRTHS, m
 tab NUM_BIRTHS if cah_child_birth_yr1_ref>9000, m // so thee are people without births, so they are eligible
 
-
 // remove if first birth prior to relationship start - either or both?! well probably either if my outcome will be joint first birth? because if either had a birth prior to the relationship, they are no longer eligible for a joint first birth...
 gen first_birth_prior=0
 replace first_birth_prior= 1 if cah_child_birth_yr1_ref<rel_start_yr | cah_child_birth_yr1_sp<rel_start_yr
@@ -357,7 +391,7 @@ tab first_birth_use_ref first_birth_use_sp, m
 
 // should I also drop if the first birth year is not the same for the partners?
 gen joint_first_birth_year=.
-replace joint_first_birth_year = cah_child_birth_yr1_ref if cah_child_birth_yr1_ref==cah_child_birth_yr1_sp
+replace joint_first_birth_year = birth_yr_ref1_adj if birth_yr_ref1_adj==birth_yr_sp1_adj
 
 inspect joint_first_birth_year // about 5% missing
 drop if joint_first_birth_year==.
@@ -378,3 +412,57 @@ save "$created_data/PSID_first_birth_sample.dta", replace
 **# SECOND BIRTH SAMPLE
 ********************************************************************************
 use "$temp\all_couples.dta", clear // okay back to file with all couples
+
+// so firt drop all couples with 0 births? because can't be eligible to have a second birth if never had a first...
+drop if NUM_BIRTHS==0
+
+// so I want the BASE / eligible sample to be all couples who had one birth together. I don't *think* I care if the first birth has been observed? so, that just means their first birth year is the same? or should the first birth be the same AND after the relationship start date?
+// okay, but do I care if their FIRST birth is the same year? or just that they had one baby together? so it could have been one's first birth and the other's second.
+// gah so how do I know that? so I think I need to actually observe first and second birth? or generally, just keep the years in between the first and second birth? even if not all observed? so clock 1 = time of first birth and censored at time of second? okay but how do I figure out if they had two kids TOGETHER, especially if some had birth PRIOR to relationship?
+browse unique_id partner_id survey_yr rel_start_year joint_first_birth_year cah_child_birth_yr1_ref cah_child_birth_yr2_ref cah_child_birth_yr1_sp cah_child_birth_yr2_sp
+
+// let's try this
+gen ref_birth_no=.
+forvalues b=1/20{
+	replace ref_birth_no=`b' if survey_yr = cah_child_birth_yr`b'_ref
+}
+ 
+// maybe first try removing those with first AND second births prior to relationship?
+gen second_birth_prior=0
+replace second_birth_prior= 1 if cah_child_birth_yr2_ref<rel_start_yr | cah_child_birth_yr2_sp<rel_start_yr
+
+drop if second_birth_prior==1
+
+
+
+
+
+
+
+
+
+gen joint_first_birth_year=.
+replace joint_first_birth_year = cah_child_birth_yr1_ref if cah_child_birth_yr1_ref==cah_child_birth_yr1_sp
+
+inspect joint_first_birth_year // about 40% missing
+
+
+
+
+// drop if joint_first_birth_year==.
+
+
+
+// then remove all years AFTER the transition year - but okay what if no transition? that will still work bc it's 9999? so the survey year will never be greater than?
+browse unique_id partner_id survey_yr rel_start_yr first_birth_together joint_first_birth joint_first_birth_year NUM_CHILDREN_ NUM_BIRTHS
+tab joint_first_birth, m
+
+gen censored=0
+replace censored=1 if survey_yr > joint_first_birth_year
+tab censored joint_first_birth, row m // want to make sure I waon't accidentally drop any observed transitions.
+
+drop if censored==1
+
+// should the clock be time since first birth? probably? or relationship duration / age?
+
+save "$created_data/PSID_first_second_sample.dta", replace

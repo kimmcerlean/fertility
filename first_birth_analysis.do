@@ -42,7 +42,7 @@ margins housework_bkt
 logistic joint_first_birth i.AGE_SPOUSE_ i.marital_status_updated i.housework_bkt_lag
 margins housework_bkt_lag
 
-logistic joint_first_birth i.AGE_SPOUSE_ i.marital_status_updated structural_familism if state_fips!=11 // wait, so higher, less likely to have a birth?! BUT is this correlated with like education / traditional values?
+logistic joint_first_birth i.AGE_SPOUSE_ i.marital_status_updated structural_familism if state_fips!=11 // okay, so now that i fixed the births, this actually has a positive association?
 margins, at(structural_familism=(-5(1)10))
 
 // Paid labor
@@ -70,3 +70,17 @@ logistic joint_first_birth i.AGE_SPOUSE_ i.marital_status_updated c.structural_f
 sum structural_familism, detail
 margins, dydx(housework_bkt_lag) at(structural_familism=(`r(p5)' `r(p25)' `r(p50)' `r(p75)' `r(p95)'))
 marginsplot, xtitle("Structural Familism Scale: percentiles") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Female HW" 2 "Male HW") rows(1)) xlabel(-3.12 "5th" -0.64 "25th" 1.27 "50th" 3.57 "75th" 12.48 "95th") yscale(range(-.1 .1)) ylabel(-.1(.05).1, angle(0)) plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12"))
+
+
+// Both
+* Structural familism interaction
+logistic joint_first_birth i.AGE_SPOUSE_ i.marital_status_updated c.structural_familism i.earn_housework c.structural_familism#i.earn_housework 
+sum structural_familism, detail
+margins, dydx(earn_housework) at(structural_familism=(`r(p5)' `r(p25)' `r(p50)' `r(p75)' `r(p95)'))
+marginsplot, xtitle("Structural Familism Scale: percentiles") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Second Shift" 2 "Traditional" 3 "Counter" 4 "Other") rows(1)) xlabel(-3.12 "5th" -0.64 "25th" 1.27 "50th" 3.57 "75th" 12.48 "95th") yscale(range(-.1 .1)) ylabel(-.1(.05).1, angle(0)) plot3opts(lcolor("gs6") mcolor("gs6")) ci3opts(color("gs6")) plot4opts(lcolor("gs12") mcolor("gs12")) ci4opts(color("gs12"))
+
+* Structural familism interaction - lag
+logistic joint_first_birth i.AGE_SPOUSE_ i.marital_status_updated c.structural_familism i.earn_housework_lag c.structural_familism#i.earn_housework_lag 
+sum structural_familism, detail
+margins, dydx(earn_housework_lag) at(structural_familism=(`r(p5)' `r(p25)' `r(p50)' `r(p75)' `r(p95)'))
+marginsplot, xtitle("Structural Familism Scale: percentiles") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Second Shift" 2 "Traditional" 3 "Counter" 4 "Other") rows(1)) xlabel(-3.12 "5th" -0.64 "25th" 1.27 "50th" 3.57 "75th" 12.48 "95th") yscale(range(-.1 .1)) ylabel(-.1(.05).1, angle(0)) plot3opts(lcolor("gs6") mcolor("gs6")) ci3opts(color("gs6")) plot4opts(lcolor("gs12") mcolor("gs12")) ci4opts(color("gs12"))
