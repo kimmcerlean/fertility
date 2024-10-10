@@ -90,7 +90,38 @@ rename cah_int_number int_number
 rename cah_per_num per_num
 rename cah_unique_id unique_id
 rename cah_INTERVIEW_NUM_1968 INTERVIEW_NUM_1968
+gen partner_id = unique_id
 
+forvalues n=1/20{
+	rename cah_parent_marital_status`n' cah_parent_marst`n' // think getting too long for what I want to work
+}
+
+foreach var in cah_*{
+	rename `var' `var'_ref // make a set for partner and a set for spouse
+	// gen `var'_sp = `var' // not working
+}
+
+forvalues n=1/20{
+	gen cah_child_int_number`n'_sp = cah_child_int_number`n'_ref // need spouse version
+	gen cah_child_per_num`n'_sp = cah_child_per_num`n'_ref 
+	gen cah_unique_id_child`n'_sp = cah_unique_id_child`n'_ref 
+	gen cah_event_type`n'_sp = cah_event_type`n'_ref 
+	gen cah_parent_marst`n'_sp = cah_parent_marst`n'_ref 
+	gen cah_num_children`n'_sp = cah_num_children`n'_ref 
+	gen cah_child_sex`n'_sp = cah_child_sex`n'_ref 
+	gen cah_child_birth_yr`n'_sp = cah_child_birth_yr`n'_ref 
+	gen cah_child_birth_mon`n'_sp = cah_child_birth_mon`n'_ref 
+	gen cah_child_hispanicity`n'_sp = cah_child_hispanicity`n'_ref 
+	gen cah_child_race1`n'_sp = cah_child_race1`n'_ref 
+	gen cah_child_race2`n'_sp = cah_child_race2`n'_ref 
+	gen cah_child_race3`n'_sp = cah_child_race3`n'_ref 
+	gen cah_mom_wanted`n'_sp = cah_mom_wanted`n'_ref 
+	gen cah_mom_timing`n'_sp = cah_mom_timing`n'_ref 
+	gen cah_dad_wanted`n'_sp = cah_dad_wanted`n'_ref 
+	gen cah_dad_timing`n'_sp = cah_dad_timing`n'_ref 
+	gen cah_birth_order`n'_sp = cah_birth_order`n'_ref 
+}
+   
 save "$temp\birth_history_wide.dta", replace
 
 ********************************************************************************
@@ -98,8 +129,29 @@ save "$temp\birth_history_wide.dta", replace
 ********************************************************************************
 use "$created_data/PSID_partners_cleaned.dta", clear
 
-// merge on marital history
-merge m:1 unique_id using "$temp\birth_history_wide.dta"
+browse unique_id FAMILY_INTERVIEW_NUM_ survey_yr RELATION_ 
+
+// attempt to create partner ids
+gen id_ref=.
+replace id_ref = unique_id if inlist(RELATION_,1,10) 
+bysort survey_yr FAMILY_INTERVIEW_NUM_ (id_ref): replace id_ref = id_ref[1]
+
+gen id_wife=.
+replace id_wife = unique_id if inlist(RELATION_,2,20,22) 
+bysort survey_yr FAMILY_INTERVIEW_NUM_ (id_wife): replace id_wife = id_wife[1]
+
+sort unique_id survey_yr
+browse unique_id FAMILY_INTERVIEW_NUM_ survey_yr RELATION_ id_ref id_wife
+
+gen partner_id=.
+replace partner_id = id_ref if inlist(RELATION_,2,20,22)  // so need opposite id
+replace partner_id = id_wife if inlist(RELATION_,1,10)
+
+browse unique_id FAMILY_INTERVIEW_NUM_ survey_yr RELATION_ partner_id id_ref id_wife
+sort unique_id survey_yr
+
+// merge on birth history: respondent
+merge m:1 unique_id using "$temp\birth_history_wide.dta", keepusing(*_ref)
 drop if _merge==2
 
 gen in_birth_history=0
@@ -108,62 +160,105 @@ drop _merge
 
 tab in_birth_history in_marital_history, m // okay, so exact same overlap, which makes sense, bc both started in 1985
 
+// merge on birth history: partner
+merge m:1 partner_id using "$temp\birth_history_wide.dta", keepusing(*_sp)
+drop if _merge==2
+
+gen in_birth_history_sp=0
+replace in_birth_history_sp=1 if _merge==3
+drop _merge
+
+// birth history date matches
 sort unique_id survey_yr
 gen check=.
-replace check=0 if FIRST_BIRTH_YR != cah_child_birth_yr1 & in_birth_history==1
-replace check=1 if FIRST_BIRTH_YR == cah_child_birth_yr1 & in_birth_history==1
+replace check=0 if FIRST_BIRTH_YR != cah_child_birth_yr1_ref & in_birth_history==1
+replace check=1 if FIRST_BIRTH_YR == cah_child_birth_yr1_ref & in_birth_history==1
 tab FIRST_BIRTH_YR if check==0 // all 9999s
-browse FIRST_BIRTH_YR cah_child_birth_yr* if check==0
+browse FIRST_BIRTH_YR cah_child_birth_yr*_ref if check==0
 
-**These seem wrong for some reason
+**These seem wrong for some reason and I want to create for both ref and partner
 drop had_birth had_first_birth had_first_birth_alt
 
 sort unique_id wave
 
 // any births
-gen had_birth=0
-replace had_birth=1 if NUM_CHILDREN_ == NUM_CHILDREN_[_n-1]+1 & AGE_YOUNG_CHILD_==1 & unique_id==unique_id[_n-1] & wave==wave[_n-1]+1
+gen had_birth_ref=0
+replace had_birth_ref=1 if NUM_CHILDREN_ == NUM_CHILDREN_[_n-1]+1 & AGE_YOUNG_CHILD_==1 & unique_id==unique_id[_n-1] & wave==wave[_n-1]+1
 
-gen had_birth_lag=.
-replace had_birth_lag=had_birth[_n+1] if unique_id==unique_id[_n+1] & wave==wave[_n+1]-1
-replace had_birth_lag=0 if had_birth_lag==. // seems to be recorded one year off. okay but this is getting wild
-
-gen had_birth_alt=0
+gen had_birth_alt_ref=0
 forvalues b=1/20{
-	replace had_birth_alt=1 if survey_yr==cah_child_birth_yr`b' // so if survey year matches any of the birth dates
+	replace had_birth_alt_ref=1 if survey_yr==cah_child_birth_yr`b'_ref // so if survey year matches any of the birth dates
 }
 
-tab had_birth had_birth_alt
-tab had_birth_lag had_birth_alt
+tab had_birth_ref had_birth_alt_ref
+
+gen had_birth_sp=0
+replace had_birth_sp=1 if NUM_CHILDREN_ == NUM_CHILDREN_[_n-1]+1 & AGE_YOUNG_CHILD_==1 & partner_id==partner_id[_n-1] & wave==wave[_n-1]+1 // assuming if the partner is in the household, the birth is shared across the two of them
+
+gen had_birth_alt_sp=0
+forvalues b=1/20{
+	replace had_birth_alt_sp=1 if survey_yr==cah_child_birth_yr`b'_sp // so if survey year matches any of the birth dates
+}
+
+tab had_birth_sp had_birth_alt_sp
+tab had_birth_ref had_birth_sp
+tab had_birth_alt_ref had_birth_alt_sp
 
 // first births
-gen had_first_birth=0
-replace had_first_birth=1 if had_birth==1 & (survey_yr==cah_child_birth_yr1 | survey_yr==cah_child_birth_yr1+1) // think sometimes recorded a year late
+// gen had_first_birth_ref=0
+// replace had_first_birth_ref=1 if had_birth_ref==1 & (survey_yr==cah_child_birth_yr1_ref | survey_yr==cah_child_birth_yr1_ref+1) // think sometimes recorded a year late
 
-gen had_first_birth_alt=0
-replace had_first_birth_alt=1 if (survey_yr==cah_child_birth_yr1)
+gen had_first_birth_ref=0
+replace had_first_birth_ref=1 if (survey_yr==cah_child_birth_yr1_ref)
 
-gen had_first_birth_alt2=0
-replace had_first_birth_alt2=1 if NUM_CHILDREN_==1 & NUM_CHILDREN_[_n-1]==0 & AGE_YOUNG_CHILD_==1 & unique_id==unique_id[_n-1] & wave==wave[_n-1]+1
+gen had_first_birth_alt_ref=0
+replace had_first_birth_alt_ref=1 if NUM_CHILDREN_==1 & NUM_CHILDREN_[_n-1]==0 & AGE_YOUNG_CHILD_==1 & unique_id==unique_id[_n-1] & wave==wave[_n-1]+1
 
-browse unique_id survey_yr in_birth_history NUM_CHILDREN_ AGE_YOUNG_CHILD_ had_birth had_birth_alt had_first_birth* FIRST_BIRTH_YR cah_child_birth_yr* 
+gen had_first_birth_sp=0
+replace had_first_birth_sp=1 if (survey_yr==cah_child_birth_yr1_sp)
 
-tab had_first_birth had_first_birth_alt
-tab had_first_birth had_first_birth_alt2
-tab had_first_birth_alt had_first_birth_alt2
+gen had_first_birth_alt_sp=0
+replace had_first_birth_alt_sp=1 if NUM_CHILDREN_==1 & NUM_CHILDREN_[_n-1]==0 & AGE_YOUNG_CHILD_==1 & partner_id==partner_id[_n-1] & wave==wave[_n-1]+1
+
+browse unique_id survey_yr in_birth_history NUM_CHILDREN_ AGE_YOUNG_CHILD_ had_birth_ref had_birth_sp had_birth_alt_ref had_first_birth_ref had_first_birth_alt_ref cah_child_birth_yr*_ref 
 
 // to use
-gen first_birth_use=.
-replace first_birth_use = had_first_birth_alt if in_birth_history==1 // so rely on birth history for primary
-replace first_birth_use = had_first_birth_alt2 if in_birth_history==0 // supplement with calculated but ONLY for those not in birth history
-tab first_birth_use, m
+gen first_birth_use_ref=.
+replace first_birth_use_ref = had_first_birth_ref if in_birth_history==1 // so rely on birth history for primary
+replace first_birth_use_ref = had_first_birth_alt_ref if in_birth_history==0 // supplement with calculated but ONLY for those not in birth history
+tab first_birth_use_ref, m
 
-gen birth_use=.
-replace birth_use = had_birth_alt if in_birth_history==1
-replace birth_use = had_birth if in_birth_history==0
-tab birth_use, m
+gen birth_use_ref=.
+replace birth_use_ref = had_birth_alt_ref if in_birth_history==1
+replace birth_use_ref = had_birth_ref if in_birth_history==0
+tab birth_use_ref, m
 
-browse unique_id survey_yr in_birth_history NUM_CHILDREN_ AGE_YOUNG_CHILD_ birth_use first_birth_use cah_child_birth_yr* 
+gen first_birth_use_sp=.
+replace first_birth_use_sp = had_first_birth_sp if in_birth_history_sp==1 // so rely on birth history for primary
+replace first_birth_use_sp = had_first_birth_alt_sp if in_birth_history_sp==0 // supplement with calculated but ONLY for those not in birth history
+tab first_birth_use_sp, m
+
+gen birth_use_sp=.
+replace birth_use_sp = had_birth_alt_sp if in_birth_history_sp==1
+replace birth_use_sp = had_birth_sp if in_birth_history_sp==0
+tab birth_use_sp, m
+
+tab birth_use_ref birth_use_sp
+tab first_birth_use_ref first_birth_use_sp, m // so this is the thing - do I need BOTH of them to have had a first birth together?
+
+browse unique_id survey_yr in_birth_history NUM_CHILDREN_ AGE_YOUNG_CHILD_ first_birth_use_ref cah_child_birth_yr1_ref first_birth_use_sp cah_child_birth_yr1_sp
+
+gen joint_first_birth=0
+replace joint_first_birth=1 if first_birth_use_ref==1 & first_birth_use_sp==1 & cah_child_birth_yr1_ref==cah_child_birth_yr1_sp & in_birth_history==1 & in_birth_history_sp==1
+replace joint_first_birth=1 if first_birth_use_ref==1 & first_birth_use_sp==1 & in_birth_history==0 & in_birth_history_sp==0
+replace joint_first_birth=1 if first_birth_use_ref==1 & first_birth_use_sp==1 & ((in_birth_history==0 & in_birth_history_sp==1) | (in_birth_history==1 & in_birth_history_sp==0))
+
+tab joint_first_birth,m
+tab first_birth_use_ref first_birth_use_sp, m
+
+bysort unique_id partner_id (joint_first_birth): egen first_birth_together=max(joint_first_birth) // so flag if they had first birth together? might make sample stuff easier?
+sort unique_id survey_yr
+browse unique_id partner_id survey_yr joint_first_birth first_birth_together first_birth_use_ref first_birth_use_sp // so this helps 
 
 ********************************************************************************
 **# Now figure out other general sample restrictions
@@ -215,9 +310,9 @@ Married (or pre77) |    159,316       93.69       93.69
              Total |    170,046      100.00
 */
 
-// restrict to working age?
+// restrict to working age? okay actually men can be under 60, but women need to be under childbearing age, so let's say, 50?
 tab AGE_REF_ employed_ly_head, row
-keep if (AGE_REF_>=18 & AGE_REF_<=60) &  (AGE_SPOUSE_>=18 & AGE_SPOUSE_<=60) // sort of drops off a cliff after 60?
+keep if (AGE_REF_>=18 & AGE_REF_<=60) &  (AGE_SPOUSE_>=18 & AGE_SPOUSE_<=50)
 
 // restrict to marriages started after 1990 bc that is when I have data for family measures
 unique unique_id
@@ -240,5 +335,9 @@ save "$temp\all_couples.dta", replace // let's save a version here, again with A
 ********************************************************************************
 **# FIRST BIRTH SAMPLE
 ********************************************************************************
-// so basically need to keep anyone who entered their relationship or the survey without kids? why am I struggling here lol bc also number of children might be in HH, not total births, so I need to figure this out. maybe first birth after survey start?
-browse unique_id survey_yr rel_start_yr NUM_CHILDREN_ cah_child_birth_yr1 first_birth_use
+// so basically need to keep anyone who entered their relationship or the survey without kids? why am I struggling here lol bc also number of children might be in HH, not total births, so I need to figure this out. maybe first birth after survey start? or first birth after their first year in survey?
+
+tab in_birth_history, m // good news is bc of time period, i have history for all of them which should help with the timing / sample part
+tab in_birth_history_sp, m
+
+browse unique_id partner_id survey_yr rel_start_yr NUM_CHILDREN_ cah_child_birth_yr1_ref cah_child_birth_yr1_sp joint_first_birth first_birth_together first_birth_use_ref first_birth_use_sp
