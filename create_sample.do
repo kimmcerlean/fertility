@@ -416,53 +416,122 @@ use "$temp\all_couples.dta", clear // okay back to file with all couples
 // so firt drop all couples with 0 births? because can't be eligible to have a second birth if never had a first...
 drop if NUM_BIRTHS==0
 
-// so I want the BASE / eligible sample to be all couples who had one birth together. I don't *think* I care if the first birth has been observed? so, that just means their first birth year is the same? or should the first birth be the same AND after the relationship start date?
-// okay, but do I care if their FIRST birth is the same year? or just that they had one baby together? so it could have been one's first birth and the other's second.
-// gah so how do I know that? so I think I need to actually observe first and second birth? or generally, just keep the years in between the first and second birth? even if not all observed? so clock 1 = time of first birth and censored at time of second? okay but how do I figure out if they had two kids TOGETHER, especially if some had birth PRIOR to relationship?
-browse unique_id partner_id survey_yr rel_start_year joint_first_birth_year cah_child_birth_yr1_ref cah_child_birth_yr2_ref cah_child_birth_yr1_sp cah_child_birth_yr2_sp
-
-// let's try this
-gen ref_birth_no=.
-forvalues b=1/20{
-	replace ref_birth_no=`b' if survey_yr = cah_child_birth_yr`b'_ref
-}
- 
-// maybe first try removing those with first AND second births prior to relationship?
+/*
+// maybe first try removing those with first AND second births prior to relationship? okay, but wait, what if someone's second birth is their first birth together, do I want them still?
 gen second_birth_prior=0
 replace second_birth_prior= 1 if cah_child_birth_yr2_ref<rel_start_yr | cah_child_birth_yr2_sp<rel_start_yr
 
 drop if second_birth_prior==1
 
-
-
-
-
-
-
-
-
+// also denote if the first birth was at least together, because the sample should be those who had a first birth together? Except, the problem, as below, is that it might not be both of their first births, but as long as they had a birth together previously, that should count?
 gen joint_first_birth_year=.
 replace joint_first_birth_year = cah_child_birth_yr1_ref if cah_child_birth_yr1_ref==cah_child_birth_yr1_sp
 
 inspect joint_first_birth_year // about 40% missing
+drop if joint_first_birth_year==.
+*/
+
+// so I want the BASE / eligible sample to be all couples who had one birth together. I don't *think* I care if the first birth has been observed? so, that just means their first birth year is the same? or should the first birth be the same AND after the relationship start date?
+// okay, but do I care if their FIRST birth is the same year? or just that they had one baby together? so it could have been one's first birth and the other's second.
+// gah so how do I know that? so I think I need to actually observe first and second birth? or generally, just keep the years in between the first and second birth? even if not all observed? so clock 1 = time of first birth and censored at time of second? okay but how do I figure out if they had two kids TOGETHER, especially if some had birth PRIOR to relationship?
+
+// let's try this - but this only works for births I observed
+gen ref_birth_no=.
+gen sp_birth_no=.
+forvalues b=1/20{
+	replace ref_birth_no=`b' if survey_yr == birth_yr_ref`b'_adj
+	replace sp_birth_no=`b' if survey_yr == birth_yr_sp`b'_adj
+}
+
+browse unique_id partner_id survey_yr rel_start_yr ref_birth_no sp_birth_no birth_yr_ref1_adj birth_yr_ref2_adj birth_yr_sp1_adj birth_yr_sp2_adj
+// okay, but, I did restrict to relationships that started after 1990, so might that help?
+
+// okay, I really want a time-incrementing indicator of births
+gen num_births_ref=.
+forvalues b=1/19{
+	local c = `b' + 1
+	// replace num_births_ref = cah_birth_order`b'_ref if survey_yr>=cah_child_birth_yr`b'_ref & survey_yr <cah_child_birth_yr`c'_ref
+	replace num_births_ref = `b' if survey_yr>=cah_child_birth_yr`b'_ref & survey_yr <cah_child_birth_yr`c'_ref
+}
+// replace num_births_ref = cah_birth_order20_ref if survey_yr>=cah_child_birth_yr20_ref & survey_yr <cah_child_birth_yr2_ref
+replace num_births_ref=0 if num_births_ref==.
+
+browse unique_id survey_yr num_births_ref NUM_BIRTHS NUM_CHILDREN_ cah_child_birth_yr1_ref cah_child_birth_yr2_ref cah_child_birth_yr3_ref cah_child_birth_yr4_ref cah_birth_order1_ref cah_birth_order2_ref cah_birth_order3_ref cah_birth_order4_ref 
+
+gen num_births_sp=.
+forvalues b=1/19{
+	local c = `b' + 1
+	replace num_births_sp = `b' if survey_yr>=cah_child_birth_yr`b'_sp & survey_yr <cah_child_birth_yr`c'_sp
+}
+replace num_births_sp=0 if num_births_sp==.
+
+browse unique_id partner_id survey_yr rel_start_yr num_births_ref num_births_sp ref_birth_no sp_birth_no cah_child_birth_yr1_ref cah_child_birth_yr2_ref  cah_child_birth_yr1_sp cah_child_birth_yr2_sp
+
+// this is still not helping me figure out if together. am i overcomplicating this?!
+
+forvalues r=1/20{
+	gen ref_birth_match`r'=0
+	forvalues b=1/20{
+		replace ref_birth_match`r' = `b' if cah_child_birth_yr`r'_ref == cah_child_birth_yr`b'_sp & cah_child_birth_yr`r'_ref!=9999 & cah_child_birth_yr`r'_ref!=9998 & cah_child_birth_yr`r'_ref!=.
+	}
+}
+
+forvalues r=1/20{
+	gen sp_birth_match`r'=0
+	forvalues b=1/20{
+		replace sp_birth_match`r' = `b' if cah_child_birth_yr`r'_sp == cah_child_birth_yr`b'_ref & cah_child_birth_yr`r'_sp!=9999 & cah_child_birth_yr`r'_sp!=9998 & cah_child_birth_yr`r'_sp!=.
+	}
+}
+
+/*
+gen num_births_ref_together=.
+forvalues b=1/19{
+	local c = `b' + 1
+	replace num_births_ref_together = `b' if survey_yr>=cah_child_birth_yr`b'_ref & survey_yr <cah_child_birth_yr`c'_ref & ref_birth_match`b' !=0
+}
+replace num_births_ref_together=0 if num_births_ref_together==.
+*/
+gen count=1
+
+gen num_births_ref_together=0
+forvalues b=1/19{
+	local c = `b' + 1
+	replace num_births_ref_together = num_births_ref_together + 1 if survey_yr>=cah_child_birth_yr`b'_ref & ref_birth_match`b' !=0 // & survey_yr <cah_child_birth_yr`c'_ref 
+}
+
+gen num_births_sp_together=0
+forvalues b=1/19{
+	local c = `b' + 1
+	replace num_births_sp_together = num_births_sp_together+1 if survey_yr>=cah_child_birth_yr`b'_sp  & sp_birth_match`b' !=0 //  & survey_yr <cah_child_birth_yr`c'_sp
+}
+
+browse unique_id partner_id survey_yr rel_start_yr ref_birth_match1 ref_birth_match2 sp_birth_match1 sp_birth_match2 cah_child_birth_yr1_ref cah_child_birth_yr2_ref cah_child_birth_yr3_ref cah_child_birth_yr4_ref cah_child_birth_yr1_sp cah_child_birth_yr2_sp cah_child_birth_yr3_sp cah_child_birth_yr4_sp num_births_ref num_births_ref_together num_births_sp num_births_sp_together
 
 
+// attempting to figure out who is at risk
+browse unique_id partner_id survey_yr rel_start_yr num_births_ref_together num_births_sp_together
+gen births_check=0
+replace births_check=1 if num_births_ref_together==num_births_sp_together
 
+sort unique_id partner_id wave
+gen birth_transition_year=0
+replace birth_transition_year=1 if num_births_ref_together==num_births_ref_together[_n-1]+1 & unique_id==unique_id[_n-1] & partner_id==partner_id[_n-1] & wave==wave[_n-1]+1
 
-// drop if joint_first_birth_year==.
+gen at_risk=.
+replace at_risk=0 if num_births_ref_together>2 & num_births_sp_together>2 // not at risk if already had two births
+replace at_risk=0 if num_births_ref_together==0 | num_births_sp_together==0 // not at risk if one partner has not yet had a first birth
+replace at_risk=1 if num_births_ref_together==1
+replace at_risk=1 if num_births_ref_together==2 & birth_transition_year==1 // only want the first year of second birth, after that, remove
+replace at_risk=0 if num_births_ref_together==2 & birth_transition_year==0 // only want the first year of second birth, after that, remove
 
-
+browse unique_id partner_id survey_yr rel_start_yr at_risk num_births_ref_together num_births_sp_together birth_transition_year cah_child_birth_yr1_ref cah_child_birth_yr2_ref cah_child_birth_yr3_ref cah_child_birth_yr1_sp cah_child_birth_yr2_sp cah_child_birth_yr3_sp
 
 // then remove all years AFTER the transition year - but okay what if no transition? that will still work bc it's 9999? so the survey year will never be greater than?
-browse unique_id partner_id survey_yr rel_start_yr first_birth_together joint_first_birth joint_first_birth_year NUM_CHILDREN_ NUM_BIRTHS
-tab joint_first_birth, m
-
-gen censored=0
-replace censored=1 if survey_yr > joint_first_birth_year
-tab censored joint_first_birth, row m // want to make sure I waon't accidentally drop any observed transitions.
-
-drop if censored==1
-
+drop if at_risk==0
+drop if num_births_ref_together>2
 // should the clock be time since first birth? probably? or relationship duration / age?
 
-save "$created_data/PSID_first_second_sample.dta", replace
+gen second_birth=0
+replace second_birth=1 if num_births_ref_together==2 & birth_transition_year==1
+
+save "$created_data/PSID_second_birth_sample.dta", replace
