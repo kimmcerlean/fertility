@@ -451,7 +451,7 @@ gen num_births_ref=.
 forvalues b=1/19{
 	local c = `b' + 1
 	// replace num_births_ref = cah_birth_order`b'_ref if survey_yr>=cah_child_birth_yr`b'_ref & survey_yr <cah_child_birth_yr`c'_ref
-	replace num_births_ref = `b' if survey_yr>=cah_child_birth_yr`b'_ref & survey_yr <cah_child_birth_yr`c'_ref
+	replace num_births_ref = `b' if survey_yr>=birth_yr_ref`b'_adj & survey_yr < birth_yr_ref`c'_adj
 }
 // replace num_births_ref = cah_birth_order20_ref if survey_yr>=cah_child_birth_yr20_ref & survey_yr <cah_child_birth_yr2_ref
 replace num_births_ref=0 if num_births_ref==.
@@ -461,7 +461,7 @@ browse unique_id survey_yr num_births_ref NUM_BIRTHS NUM_CHILDREN_ cah_child_bir
 gen num_births_sp=.
 forvalues b=1/19{
 	local c = `b' + 1
-	replace num_births_sp = `b' if survey_yr>=cah_child_birth_yr`b'_sp & survey_yr <cah_child_birth_yr`c'_sp
+	replace num_births_sp = `b' if survey_yr>=birth_yr_sp`b'_adj & survey_yr < birth_yr_sp`c'_adj
 }
 replace num_births_sp=0 if num_births_sp==.
 
@@ -491,18 +491,17 @@ forvalues b=1/19{
 }
 replace num_births_ref_together=0 if num_births_ref_together==.
 */
-gen count=1
 
 gen num_births_ref_together=0
 forvalues b=1/19{
 	local c = `b' + 1
-	replace num_births_ref_together = num_births_ref_together + 1 if survey_yr>=cah_child_birth_yr`b'_ref & ref_birth_match`b' !=0 // & survey_yr <cah_child_birth_yr`c'_ref 
+	replace num_births_ref_together = num_births_ref_together + 1 if survey_yr>=birth_yr_ref`b'_adj & ref_birth_match`b' !=0 // & survey_yr <cah_child_birth_yr`c'_ref 
 }
 
 gen num_births_sp_together=0
 forvalues b=1/19{
 	local c = `b' + 1
-	replace num_births_sp_together = num_births_sp_together+1 if survey_yr>=cah_child_birth_yr`b'_sp  & sp_birth_match`b' !=0 //  & survey_yr <cah_child_birth_yr`c'_sp
+	replace num_births_sp_together = num_births_sp_together+1 if survey_yr>=birth_yr_sp`b'_adj  & sp_birth_match`b' !=0 //  & survey_yr <cah_child_birth_yr`c'_sp
 }
 
 browse unique_id partner_id survey_yr rel_start_yr ref_birth_match1 ref_birth_match2 sp_birth_match1 sp_birth_match2 cah_child_birth_yr1_ref cah_child_birth_yr2_ref cah_child_birth_yr3_ref cah_child_birth_yr4_ref cah_child_birth_yr1_sp cah_child_birth_yr2_sp cah_child_birth_yr3_sp cah_child_birth_yr4_sp num_births_ref num_births_ref_together num_births_sp num_births_sp_together
