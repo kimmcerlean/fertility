@@ -11,16 +11,54 @@
 * Description
 ********************************************************************************
 * This files takes sample of couples and restricts it to fertility sample
-* (couple sample created for growth curve project)
+* (couple sample created for growth curve project - in weequalize data creation folder)
 
 ********************************************************************************
-* First, sort out birth history data to append
+* First, create a lookup file of children and their parents with the unique ID I can link back to other files
+********************************************************************************
+use "$fam_history/pid21.dta", clear
+
+// (ER30001 * 1000) + ER30002
+// (1968 interview ID multiplied by 1000) plus Person Number
+
+gen unique_id_child = (PID2*1000) + PID3 // this is what I will match to below
+browse PID2 PID3 unique_id_child
+
+gen unique_id_mom = (PID4*1000) + PID5 // these will be for reference
+browse PID4 PID5 unique_id_mom PID19
+rename PID19 in_cah_mom
+
+gen has_birth_mom_info=0
+replace has_birth_mom_info=1 if inrange(PID5,1,999)
+tab has_birth_mom_info // okay this matches codebook - 43015
+
+tab has_birth_mom_info in_cah_mom, row // so like 79% of those with info recorded in birth history. is this concerning? does that mean I should use this file? and not birth history?
+
+gen unique_id_dad = (PID23*1000) + PID24
+browse PID23 PID24 unique_id_dad PID37
+rename PID37 in_cah_dad
+
+gen has_birth_dad_info=0
+replace has_birth_dad_info=1 if inrange(PID24,1,999)
+tab has_birth_dad_info // okay this matches codebook - 49539
+
+tab has_birth_dad_info in_cah_dad, row
+
+browse unique_id_child unique_id_mom unique_id_dad has_birth_mom_info has_birth_dad_info in_cah_mom in_cah_dad // some children have no birth parents? or adoptive (but less interested in that)
+tab has_birth_mom_info has_birth_dad_info, cell // so 30% have neither? okay, this matches what the codebook says: "Of the 102,074 individuals who do have records on the Parent Identification File, approximately two-thirds of the records contain identifiers for at least one biological or adoptive parent." unclear what to do about rest. maybe they are just people never observed as child (like if entered panel when adult) - so then their parents never in? this file specifically doesn't have any info on age or birth years
+
+keep unique_id_child unique_id_mom unique_id_dad has_birth_mom_info has_birth_dad_info in_cah_mom in_cah_dad
+
+save "$temp\child_parent_lookup.dta", replace
+
+********************************************************************************
+**# * Then, sort out birth history data to append
 ********************************************************************************
 use "$fam_history/cah85_21.dta", clear
 
 gen unique_id = (CAH3*1000) + CAH4
 browse CAH3 CAH4 unique_id
-gen unique_id_child = (CAH10*1000) + CAH11
+gen unique_id_child = (CAH10*1000) + CAH11 // this is what I will match to above
 
 /* first rename relevant variables for ease*/
 rename CAH3 int_number
@@ -59,8 +97,28 @@ replace dad_timing = . if inlist(dad_timing,8,9)
 gen no_children=0
 replace no_children=1 if child_int_number==0 & child_per_num==0 
 
+// now, I want to match the child birth parent info for later and before i make wide
+merge m:1 unique_id_child using "$temp\child_parent_lookup.dta"
+
+tab has_birth_dad_info has_birth_mom_info if _merge==2, cell // so about 70% of using only are those with no parent info, which makes sense. unsure about the remainder...
+tab in_cah_dad in_cah_mom if _merge==2, cell // the remainder are those where parents not recorded in history. are these children useful to me? I am sure I can recover their birth info later? revisit this
+
+tab _merge if unique_id_child==0 // master only - which makes sense, because they are people without children
+tab _merge if unique_id_child!=0 // so only 1.5% of those with a child id didn't have a match in pid
+drop if _merge==2
+drop _merge
+
+browse unique_id unique_id_child child_birth_yr child_birth_mon unique_id_mom unique_id_dad in_cah_dad in_cah_mom
+
+gen id_check=0
+replace id_check=1 if unique_id==unique_id_mom | unique_id==unique_id_dad
+tab id_check, m
+tab id_check if unique_id_child!=0 // yes, so unique_id is listed as either mom or dad in 96% of cases.
+	// browse unique_id unique_id_child child_birth_yr child_birth_mon unique_id_mom unique_id_dad in_cah_dad in_cah_mom if id_check==0 & unique_id_child!=0
+	// tab has_birth_mom_info has_birth_dad_info if id_check==0, cell
+
 // this is currently LONG - one record per birth. want to make WIDE
-local birthvars "int_number per_num unique_id child_int_number child_per_num unique_id_child event_type num_children parent_sex parent_birth_yr parent_birth_mon parent_marital_status birth_order child_sex child_birth_yr child_birth_mon child_hispanicity child_race1 child_race2 child_race3 mom_wanted mom_timing dad_wanted dad_timing"
+local birthvars "int_number per_num unique_id child_int_number child_per_num unique_id_child event_type num_children parent_sex parent_birth_yr parent_birth_mon parent_marital_status birth_order child_sex child_birth_yr child_birth_mon child_hispanicity child_race1 child_race2 child_race3 mom_wanted mom_timing dad_wanted dad_timing unique_id_mom unique_id_dad"
 
 keep `birthvars'
 
@@ -78,7 +136,7 @@ by unique_id: egen birth_rank = rank(birth_order), unique
 browse unique_id birth_order birth_rank child_birth_yr * 
 tab birth_rank birth_order
 
-reshape wide child_int_number child_per_num unique_id_child event_type parent_marital_status num_children child_sex child_birth_yr child_birth_mon child_hispanicity child_race1 child_race2 child_race3 mom_wanted mom_timing dad_wanted dad_timing birth_order, i(int_number per_num unique_id parent_sex parent_birth_yr parent_birth_mon)  j(birth_rank)
+reshape wide child_int_number child_per_num unique_id_child event_type parent_marital_status num_children child_sex child_birth_yr child_birth_mon child_hispanicity child_race1 child_race2 child_race3 mom_wanted mom_timing dad_wanted dad_timing birth_order unique_id_mom unique_id_dad, i(int_number per_num unique_id parent_sex parent_birth_yr parent_birth_mon)  j(birth_rank)
 
 gen INTERVIEW_NUM_1968 = int_number
 
@@ -119,8 +177,12 @@ forvalues n=1/20{
 	gen cah_mom_timing`n'_sp = cah_mom_timing`n'_ref 
 	gen cah_dad_wanted`n'_sp = cah_dad_wanted`n'_ref 
 	gen cah_dad_timing`n'_sp = cah_dad_timing`n'_ref 
-	gen cah_birth_order`n'_sp = cah_birth_order`n'_ref 
+	gen cah_birth_order`n'_sp = cah_birth_order`n'_ref
+	gen cah_unique_id_mom`n'_sp = cah_unique_id_mom`n'_ref 
+	gen cah_unique_id_dad`n'_sp = cah_unique_id_dad`n'_ref
 }
+
+// browse unique_id cah_unique_id_child1_ref cah_child_birth_yr1_ref cah_unique_id_mom1_ref cah_unique_id_dad1_ref cah_unique_id_child2_ref cah_child_birth_yr2_ref cah_unique_id_mom2_ref cah_unique_id_dad2_ref
    
 save "$temp\birth_history_wide.dta", replace
 
