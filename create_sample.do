@@ -212,6 +212,14 @@ replace partner_id = id_wife if inlist(RELATION_,1,10)
 browse unique_id FAMILY_INTERVIEW_NUM_ survey_yr RELATION_ partner_id id_ref id_wife
 sort unique_id survey_yr
 
+** Should I do sample restrictions here? need to reorient myself to who and what are included
+// browse unique_id partner_id survey_yr first_survey_yr rel_start rel_start_yr rel_start_yr_est mh_yr_married1 mh_yr_married2 mh_yr_married3 rel_end rel_end_pre rel_end_yr rel_end_yr_est
+keep if rel_start_yr>=1990 & rel_start_yr!=. // my measures don't start until 1990, and that works with "gender revolution" framing, so restrict to that
+
+// browse unique_id partner_id survey_yr SEX AGE_INDV_ BIRTH_YR_INDV_ year_birth yr_born_head AGE_HEAD_ yr_born_wife AGE_WIFE_ // should I restrict to certain ages now? or later?
+keep if (AGE_HEAD_>=20 & AGE_HEAD_<=60) & (AGE_WIFE_>=20 & AGE_WIFE_<50) // Comolli using the PSID does 16-49 for women and < 60 for men, but I want a higher lower limit for measurement of education? In general, age limit for women tends to range from 44-49, will use the max of 49 for now. lower limit of 20 seems justifiable based on prior research (and could prob go even older)
+
+** Okay, start to add birth info in
 // merge on birth history: respondent
 merge m:1 unique_id using "$temp\birth_history_wide.dta", keepusing(*_ref)
 drop if _merge==2
@@ -235,13 +243,99 @@ sort unique_id survey_yr
 gen check=.
 replace check=0 if FIRST_BIRTH_YR != cah_child_birth_yr1_ref & in_birth_history==1
 replace check=1 if FIRST_BIRTH_YR == cah_child_birth_yr1_ref & in_birth_history==1
-tab FIRST_BIRTH_YR if check==0 // all 9999s
+tab FIRST_BIRTH_YR if check==0 // all 9999s - aka no kids for that person specifically
 browse FIRST_BIRTH_YR cah_child_birth_yr*_ref if check==0
 
-**These seem wrong for some reason and I want to create for both ref and partner
+********************************************************************************
+* Create actual birth measures
+********************************************************************************
+**These seem wrong for some reason and I want to create for both ref and partner (and joint). also going to revisit all of these variables, so just dropping for now - these were created in earlier data creation phase
 drop had_birth had_first_birth had_first_birth_alt
-sort unique_id wave
 
+// browse unique_id partner_id SEX survey_yr rel_start_yr rel_end_yr cah_unique_id_child1_ref cah_unique_id_mom1_ref cah_unique_id_dad1_ref cah_child_birth_yr1_ref cah_unique_id_child2_ref cah_unique_id_mom2_ref cah_unique_id_dad2_ref cah_child_birth_yr2_ref cah_unique_id_child1_sp cah_unique_id_mom1_sp cah_unique_id_dad1_sp  cah_child_birth_yr1_sp  cah_unique_id_child2_sp cah_unique_id_mom2_sp cah_unique_id_dad2_sp cah_child_birth_yr2_sp
+
+** First indicate, for each birth of each partner, if it is with current partner
+forvalues c=1/20{
+	gen cah_sharedchild`c'_ref=.
+	replace cah_sharedchild`c'_ref = 0 if SEX==2 & cah_unique_id_child`c'_ref!=0 & unique_id == cah_unique_id_mom`c'_ref & partner_id != cah_unique_id_dad`c'_ref // first do assuming ref is mom
+	replace cah_sharedchild`c'_ref = 0 if SEX==1 & cah_unique_id_child`c'_ref!=0 & unique_id == cah_unique_id_dad`c'_ref & partner_id != cah_unique_id_mom`c'_ref // then assuming ref is dad
+	replace cah_sharedchild`c'_ref = 1 if SEX==2 & cah_unique_id_child`c'_ref!=0 & unique_id == cah_unique_id_mom`c'_ref & partner_id == cah_unique_id_dad`c'_ref // first do assuming ref is mom
+	replace cah_sharedchild`c'_ref = 1 if SEX==1 & cah_unique_id_child`c'_ref!=0 & unique_id == cah_unique_id_dad`c'_ref & partner_id == cah_unique_id_mom`c'_ref // then assuming ref is dad
+}
+
+// browse unique_id partner_id SEX survey_yr cah_unique_id_child1_ref cah_sharedchild1_ref cah_unique_id_mom1_ref cah_unique_id_dad1_ref cah_child_birth_yr1_ref cah_unique_id_child2_ref cah_sharedchild2_ref cah_unique_id_mom2_ref cah_unique_id_dad2_ref cah_child_birth_yr2_ref
+// inspect cah_unique_id_child1_ref if cah_sharedchild1_ref==.
+
+forvalues c=1/20{
+	gen cah_sharedchild`c'_sp=.
+	replace cah_sharedchild`c'_sp = 0 if SEX==2 & cah_unique_id_child`c'_sp!=0 & unique_id != cah_unique_id_mom`c'_sp & partner_id == cah_unique_id_dad`c'_sp // this is matched to partner, so if the ref is F, then we need the partner ID to match dad (bc he is M) and HER id not to match - bc these are his records
+	replace cah_sharedchild`c'_sp = 0 if SEX==1 & cah_unique_id_child`c'_sp!=0 & unique_id != cah_unique_id_dad`c'_sp & partner_id == cah_unique_id_mom`c'_sp // then assuming ref is dad so partner records that need to match are mom's
+	replace cah_sharedchild`c'_sp = 1 if SEX==2 & cah_unique_id_child`c'_sp!=0 & unique_id == cah_unique_id_mom`c'_sp & partner_id == cah_unique_id_dad`c'_sp // first do assuming ref is mom
+	replace cah_sharedchild`c'_sp = 1 if SEX==1 & cah_unique_id_child`c'_sp!=0 & unique_id == cah_unique_id_dad`c'_sp & partner_id == cah_unique_id_mom`c'_sp // then assuming ref is dad
+}
+
+// browse unique_id partner_id SEX survey_yr cah_unique_id_child1_sp cah_sharedchild1_sp cah_unique_id_mom1_sp cah_unique_id_dad1_sp cah_child_birth_yr1_sp cah_unique_id_child2_sp cah_sharedchild2_sp cah_unique_id_mom2_sp cah_unique_id_dad2_sp cah_child_birth_yr2_sp
+// inspect cah_unique_id_child1_sp if cah_sharedchild1_sp==.
+
+** Designate if first birth was together
+tab cah_sharedchild1_ref, m
+tab cah_sharedchild1_sp, m
+tab cah_sharedchild1_ref cah_sharedchild1_sp, m // is the overlap of 1s the joint first birth? but that doesn't nec. indicate that ORDER matches, just that the birth was in this relationship. it could be like mom's first birth but dad's second.
+
+gen joint_first_birth=. // want missing to be retained for those with no kids?
+replace joint_first_birth=0 if cah_sharedchild1_ref==0 | cah_sharedchild1_sp==0
+replace joint_first_birth=1 if cah_unique_id_child1_ref == cah_unique_id_child1_sp & cah_unique_id_mom1_ref == cah_unique_id_mom1_sp & cah_unique_id_dad1_ref == cah_unique_id_dad1_sp & cah_child_birth_yr1_ref == cah_child_birth_yr1_sp & cah_unique_id_child1_ref!=0 // so all IDs need to match. is there ever a world where they don't.
+tab joint_first_birth, m
+
+gen joint_first_birth_yr=.
+replace joint_first_birth_yr= cah_child_birth_yr1_ref if joint_first_birth==1
+
+gen joint_first_birth_rel=.
+replace joint_first_birth_rel=0 if joint_first_birth==1 & joint_first_birth_yr < rel_start_yr
+replace joint_first_birth_rel=1 if joint_first_birth==1 & joint_first_birth_yr >= rel_start_yr & joint_first_birth_yr!=. & rel_start_yr!=.
+tab joint_first_birth_rel // so 80% is after start
+
+browse unique_id partner_id survey_yr marital_status_updated rel_start rel_start_yr joint_first_birth_yr joint_first_birth_rel mh_yr_married1 mh_yr_married2 mh_yr_married3
+
+	// some ids to investigate in main data to ensure the disconnect between recorded relationship start and recorded first birth makes sense: 
+	// browse unique_id survey_yr SEQ_NUMBER_ MARITAL_PAIRS_ FIRST_BIRTH_YR AGE_YOUNG_CHILD_ NUM_CHILDREN_ NUM_IN_HH_ if inlist(unique_id,4008, 4179, 4039, 4201, 557030, 557175,2073031, 2073172, 3162001, 3162002, 3163001, 3163002,  4448001, 4448002, 6721172, 6721173) // have to do this in main original file, not here
+	// u: 4008 p: 4179 rel: 1998 birth: 1984. 4008 in and out between 1968 and 2011, listed in "marital pairs" 1987-1992, 1999-2005, 2011. 4179 exists 1986 to 2009 (mostly), in marital pairs 1987-1992, 1999-2005.
+	// u: 4039 p: 4201 rel: 2010 birth: 2009. 4039 exists 1991-2021, but only listed in "marital pairs" between 2011 and 2015. 4201 only exists (and in marital pairs) 2011-2015
+	// u: 557030 p: 557175 rel: 1995 birth: 1991. 557030 in survey but not in marital pair 1972-1983, then in survey AND in pair 1994-2021. 557175 only exists (and in marital pair) 1994-2021
+	// u: 2073031 p: 2073172 rel: 2004 birth: 1997. 2073031 in survey 1982-2021, but only in marital pair 2005-2021. 2073172 only in survey ANd in pair 2005-2021
+	// u: 3162001 p: 3162002 rel: 1990 birth: 1980. 3162001 in survey AND in pair 1997-2021. 3162002 same
+	// u: 3163001 p: 3163002 rel: 1997 birth: 1983. 3163001 in survey AND in pair 1997-2003. 3163002 in survey 1997-2021, but only in pair 1997-2003.
+	// u: 4448001 p: 4448002 rel: 2017 birth: 1992. 4448001 in survey AND in pair 2017-2021. 4448002 same.
+	// u: 6721172 p: 6721173 rel: 2010 birth: 2004. 6721172 in survey 2003-2021, but in pair starting 2011-2021. 6721173 in survey 2009, but in pair 2011-2021.
+
+** Designate if entered rel already having had a birth
+gen num_births_pre_ref=0
+gen num_births_pre_sp=0
+forvalues c=1/20{
+	replace num_births_pre_ref = num_births_pre_ref + 1 if cah_child_birth_yr`c'_ref < rel_start_yr
+	replace num_births_pre_sp = num_births_pre_sp + 1 if cah_child_birth_yr`c'_sp < rel_start_yr
+}
+
+tab num_births_pre_ref, m
+tab num_births_pre_sp, m
+tab num_births_pre_ref num_births_pre_sp, m
+
+** Designate if entered rel already having had a birth - and births NOT with current partner
+gen num_births_pre_indv_ref=0
+gen num_births_pre_indv_sp=0
+forvalues c=1/20{
+	replace num_births_pre_indv_ref = num_births_pre_indv_ref + 1 if cah_child_birth_yr`c'_ref < rel_start_yr & cah_sharedchild`c'_ref==0 // so this is if it's before relationship start AND not as recorded as being with current partner
+	replace num_births_pre_indv_sp = num_births_pre_indv_sp + 1 if cah_child_birth_yr`c'_sp < rel_start_yr & cah_sharedchild`c'_sp==0
+}
+
+tab num_births_pre_indv_ref num_births_pre_indv_sp, m
+
+// browse unique_id partner_id survey_yr rel_start_yr num_births_pre_indv_ref cah_child_birth_yr1_ref cah_sharedchild1_ref cah_child_birth_yr2_ref cah_sharedchild2_ref  cah_child_birth_yr3_ref cah_sharedchild3_ref num_births_pre_indv_sp cah_child_birth_yr1_sp cah_sharedchild1_sp cah_child_birth_yr2_sp cah_sharedchild2_sp cah_child_birth_yr3_sp cah_sharedchild3_sp
+
+**# Temp save
+save "$created_data/PSID_couple_births.dta", replace
+
+** This is trying to increment births DURING the survey period
 // okay NEW problem, what if birth happens in an off year when the survey is biennial? right now, acting like no birth, but that is not right... GAH. add one to all of those? (basically if it's after 1997 and even year? so if birth is in 1998, let's record in 1999. OR should I record in 1997 because then we can say that is like "conception" so might not even need to lag the HH indicators?) okay also think about this gah. first let's create a flag to understand how many births, in general, are in off years
 
 forvalues b=1/20{
@@ -399,9 +493,6 @@ Married (or pre77) |    159,316       93.69       93.69
              Total |    170,046      100.00
 */
 
-// restrict to working age? okay actually men can be under 60, but women need to be under childbearing age, so let's say, 50?
-tab AGE_REF_ employed_ly_head, row
-keep if (AGE_REF_>=18 & AGE_REF_<=60) &  (AGE_SPOUSE_>=18 & AGE_SPOUSE_<=50)
 
 // restrict to marriages started after 1990 bc that is when I have data for family measures
 unique unique_id
