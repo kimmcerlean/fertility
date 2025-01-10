@@ -65,8 +65,8 @@ rename CAH3 int_number
 rename CAH4 per_num
 rename CAH10 child_int_number
 rename CAH11 child_per_num
-rename CAH2 event_type
-rename CAH106 num_children
+rename CAH2 event_type  // 1 = childbirth 2 = adoption
+rename CAH106 num_children // analyze with record type
 rename CAH5 parent_sex
 rename CAH7 parent_birth_yr
 rename CAH6 parent_birth_mon
@@ -136,7 +136,20 @@ by unique_id: egen birth_rank = rank(birth_order), unique
 browse unique_id birth_order birth_rank child_birth_yr * 
 tab birth_rank birth_order
 
-reshape wide child_int_number child_per_num unique_id_child event_type parent_marital_status num_children child_sex child_birth_yr child_birth_mon child_hispanicity child_race1 child_race2 child_race3 mom_wanted mom_timing dad_wanted dad_timing birth_order unique_id_mom unique_id_dad, i(int_number per_num unique_id parent_sex parent_birth_yr parent_birth_mon)  j(birth_rank)
+tab event_type
+tab num_children
+
+gen num_bio_kids = num_children if event_type==1
+gen num_adoptive_kids = num_children if event_type==2
+bysort unique_id (num_bio_kids): replace num_bio_kids = num_bio_kids[1]
+bysort unique_id (num_adoptive_kids): replace num_adoptive_kids = num_adoptive_kids[1]
+replace num_adoptive_kids = 0 if num_adoptive_kids==.
+sort unique_id birth_order
+browse unique_id event_type num_children num_bio_kids num_adoptive_kids
+
+drop num_children
+
+reshape wide child_int_number child_per_num unique_id_child event_type parent_marital_status child_sex child_birth_yr child_birth_mon child_hispanicity child_race1 child_race2 child_race3 mom_wanted mom_timing dad_wanted dad_timing birth_order unique_id_mom unique_id_dad, i(int_number per_num unique_id parent_sex parent_birth_yr parent_birth_mon num_bio_kids num_adoptive_kids)  j(birth_rank) // num_children
 
 gen INTERVIEW_NUM_1968 = int_number
 
@@ -165,7 +178,6 @@ forvalues n=1/20{
 	gen cah_unique_id_child`n'_sp = cah_unique_id_child`n'_ref 
 	gen cah_event_type`n'_sp = cah_event_type`n'_ref 
 	gen cah_parent_marst`n'_sp = cah_parent_marst`n'_ref 
-	gen cah_num_children`n'_sp = cah_num_children`n'_ref 
 	gen cah_child_sex`n'_sp = cah_child_sex`n'_ref 
 	gen cah_child_birth_yr`n'_sp = cah_child_birth_yr`n'_ref 
 	gen cah_child_birth_mon`n'_sp = cah_child_birth_mon`n'_ref 
@@ -182,7 +194,10 @@ forvalues n=1/20{
 	gen cah_unique_id_dad`n'_sp = cah_unique_id_dad`n'_ref
 }
 
-// browse unique_id cah_unique_id_child1_ref cah_child_birth_yr1_ref cah_unique_id_mom1_ref cah_unique_id_dad1_ref cah_unique_id_child2_ref cah_child_birth_yr2_ref cah_unique_id_mom2_ref cah_unique_id_dad2_ref
+gen cah_num_bio_kids_sp = cah_num_bio_kids_ref
+gen cah_num_adoptive_kids_sp = cah_num_adoptive_kids_ref
+
+// browse unique_id cah_unique_id_child1_ref cah_child_birth_yr1_ref cah_unique_id_mom1_ref cah_unique_id_dad1_ref cah_unique_id_child2_ref cah_child_birth_yr2_ref cah_unique_id_mom2_ref cah_unique_id_dad2_ref cah_num_bio_kids_ref cah_num_adoptive_kids_ref
    
 save "$temp\birth_history_wide.dta", replace
 
@@ -263,6 +278,8 @@ forvalues c=1/20{
 	replace cah_sharedchild`c'_ref = 1 if SEX==1 & cah_unique_id_child`c'_ref!=0 & unique_id == cah_unique_id_dad`c'_ref & partner_id == cah_unique_id_mom`c'_ref // then assuming ref is dad
 }
 
+egen num_shared_births_ref=rowtotal(cah_sharedchild*_ref)
+
 // browse unique_id partner_id SEX survey_yr cah_unique_id_child1_ref cah_sharedchild1_ref cah_unique_id_mom1_ref cah_unique_id_dad1_ref cah_child_birth_yr1_ref cah_unique_id_child2_ref cah_sharedchild2_ref cah_unique_id_mom2_ref cah_unique_id_dad2_ref cah_child_birth_yr2_ref
 // inspect cah_unique_id_child1_ref if cah_sharedchild1_ref==.
 
@@ -276,6 +293,19 @@ forvalues c=1/20{
 
 // browse unique_id partner_id SEX survey_yr cah_unique_id_child1_sp cah_sharedchild1_sp cah_unique_id_mom1_sp cah_unique_id_dad1_sp cah_child_birth_yr1_sp cah_unique_id_child2_sp cah_sharedchild2_sp cah_unique_id_mom2_sp cah_unique_id_dad2_sp cah_child_birth_yr2_sp
 // inspect cah_unique_id_child1_sp if cah_sharedchild1_sp==.
+
+egen num_shared_births_sp=rowtotal(cah_sharedchild*_sp)
+tab num_shared_births_ref num_shared_births_sp, m row // mostly congruous, but def some discrepancies in reporting
+tab cah_num_bio_kids_ref num_shared_births_ref, m row // so there is definitely less conguence between number of total kids and number of shared kids
+tab cah_num_bio_kids_ref cah_num_bio_kids_sp, m
+
+gen all_births_shared=0
+replace all_births_shared = 1 if cah_num_bio_kids_ref==cah_num_bio_kids_sp & cah_num_bio_kids_ref==num_shared_births_ref & num_shared_births_ref==num_shared_births_sp & cah_num_bio_kids_ref!=0 & cah_num_bio_kids_ref!=. & cah_num_bio_kids_sp!=0 & cah_num_bio_kids_sp!=.
+replace all_births_shared=. if cah_num_bio_kids_ref==0 & cah_num_bio_kids_sp==0 // no births
+
+browse unique_id partner_id survey_yr all_births_shared num_shared_births_ref num_shared_births_sp cah_num_bio_kids_ref cah_num_bio_kids_sp
+
+// browse unique_id partner_id SEX survey_yr cah_sharedchild1_ref cah_sharedchild2_ref cah_sharedchild3_ref cah_sharedchild1_sp cah_sharedchild2_sp cah_sharedchild3_sp
 
 ** Designate if first birth was together
 tab cah_sharedchild1_ref, m
@@ -296,6 +326,13 @@ replace joint_first_birth_rel=1 if joint_first_birth==1 & joint_first_birth_yr >
 tab joint_first_birth_rel // so 80% is after start
 
 browse unique_id partner_id survey_yr marital_status_updated rel_start rel_start_yr joint_first_birth_yr joint_first_birth_rel mh_yr_married1 mh_yr_married2 mh_yr_married3
+
+gen joint_first_birth_timing=.
+replace joint_first_birth_timing = joint_first_birth_yr - rel_start_yr if joint_first_birth==1 & joint_first_birth_yr!=9998
+tab joint_first_birth_timing joint_first_birth_rel, m
+tab joint_first_birth_timing if joint_first_birth_rel==1
+sum joint_first_birth_timing
+sum joint_first_birth_timing if joint_first_birth_rel==1
 
 	// some ids to investigate in main data to ensure the disconnect between recorded relationship start and recorded first birth makes sense: 
 	// browse unique_id survey_yr SEQ_NUMBER_ MARITAL_PAIRS_ FIRST_BIRTH_YR AGE_YOUNG_CHILD_ NUM_CHILDREN_ NUM_IN_HH_ if inlist(unique_id,4008, 4179, 4039, 4201, 557030, 557175,2073031, 2073172, 3162001, 3162002, 3163001, 3163002,  4448001, 4448002, 6721172, 6721173) // have to do this in main original file, not here
@@ -330,10 +367,98 @@ forvalues c=1/20{
 
 tab num_births_pre_indv_ref num_births_pre_indv_sp, m
 
+gen any_births_pre_rel=0
+replace any_births_pre_rel = 1 if num_births_pre_indv_ref >0 | num_births_pre_indv_sp > 0
+
 // browse unique_id partner_id survey_yr rel_start_yr num_births_pre_indv_ref cah_child_birth_yr1_ref cah_sharedchild1_ref cah_child_birth_yr2_ref cah_sharedchild2_ref  cah_child_birth_yr3_ref cah_sharedchild3_ref num_births_pre_indv_sp cah_child_birth_yr1_sp cah_sharedchild1_sp cah_child_birth_yr2_sp cah_sharedchild2_sp cah_child_birth_yr3_sp cah_sharedchild3_sp
 
-**# Temp save
+**# Temp save - stopped here
 save "$created_data/PSID_couple_births.dta", replace
+
+********************************************************************************
+* Intermission to figure out how to get info on the SHARED birth order
+********************************************************************************
+use "$created_data/PSID_couple_births.dta", clear
+
+browse unique_id partner_id SEX survey_yr cah_num_bio_kids_ref cah_num_bio_kids_sp cah_sharedchild1_ref cah_sharedchild2_ref cah_sharedchild3_ref cah_sharedchild1_sp cah_sharedchild2_sp cah_sharedchild3_sp
+
+collapse (max) cah_sharedchild*_ref cah_sharedchild*_sp cah_child_birth_yr*_ref cah_child_birth_yr*_sp ///
+all_births_shared num_shared_births_ref num_shared_births_sp cah_num_bio_kids_ref cah_num_bio_kids_sp, ///
+by (unique_id partner_id)
+
+browse unique_id partner_id cah_num_bio_kids_ref cah_num_bio_kids_sp cah_sharedchild1_ref cah_sharedchild2_ref cah_sharedchild3_ref cah_sharedchild1_sp cah_sharedchild2_sp cah_sharedchild3_sp
+tab cah_sharedchild1_ref if cah_num_bio_kids_ref!=0, m
+tab cah_sharedchild1_sp if cah_num_bio_kids_sp!=0, m
+
+reshape long cah_sharedchild@_ref cah_sharedchild@_sp cah_child_birth_yr@_ref cah_child_birth_yr@_sp, i(unique_id partner_id) j(birth_id)
+
+// by unique_id partner_id: egen shared_order_ref = rank(cah_sharedchild_ref) if cah_sharedchild_ref==1, unique
+by unique_id partner_id: egen shared_order_ref = rank(birth_id) if cah_sharedchild_ref==1, unique // hmm rank unique id or birth yr?
+by unique_id partner_id: egen shared_order_sp = rank(birth_id) if cah_sharedchild_sp==1, unique
+
+browse unique_id partner_id birth_id shared_order_ref cah_sharedchild_ref shared_order_sp cah_sharedchild_sp cah_child_birth_yr_ref cah_child_birth_yr_sp
+
+// make sure this is what i want to do before doing for the rest of births
+gen shared_birth1_refid=.
+replace shared_birth1_refid = birth_id if shared_order_ref==1
+bysort unique_id partner_id (shared_birth1_refid): replace shared_birth1_refid = shared_birth1_refid[1]
+	
+gen shared_birth1_refyr=.
+replace shared_birth1_refyr = cah_child_birth_yr_ref if shared_order_ref==1
+bysort unique_id partner_id (shared_birth1_refyr): replace shared_birth1_refyr = shared_birth1_refyr[1]
+
+gen shared_birth1_spid=.
+replace shared_birth1_spid = birth_id if shared_order_sp==1
+bysort unique_id partner_id (shared_birth1_spid): replace shared_birth1_spid = shared_birth1_spid[1]
+
+gen shared_birth1_spyr=.
+replace shared_birth1_spyr = cah_child_birth_yr_sp if shared_order_sp==1
+bysort unique_id partner_id (shared_birth1_spyr): replace shared_birth1_spyr = shared_birth1_spyr[1]
+
+browse unique_id partner_id birth_id shared_birth1_refid shared_birth1_spid shared_order_ref shared_order_sp shared_birth1_refyr shared_birth1_spyr cah_child_birth_yr_ref cah_child_birth_yr_sp
+
+// now loop through rest
+forvalues b=2/9{
+	gen shared_birth`b'_refid=.
+	replace shared_birth`b'_refid = birth_id if shared_order_ref==`b'
+	bysort unique_id partner_id (shared_birth`b'_refid): replace shared_birth`b'_refid = shared_birth`b'_refid[1]
+	
+	gen shared_birth`b'_refyr=.
+	replace shared_birth`b'_refyr = cah_child_birth_yr_ref if shared_order_ref==`b'
+	bysort unique_id partner_id (shared_birth`b'_refyr): replace shared_birth`b'_refyr = shared_birth`b'_refyr[1]
+	
+	gen shared_birth`b'_spid=.
+	replace shared_birth`b'_spid = birth_id if shared_order_sp==`b'
+	bysort unique_id partner_id (shared_birth`b'_spid): replace shared_birth`b'_spid = shared_birth`b'_spid[1]
+	
+	gen shared_birth`b'_spyr=.
+	replace shared_birth`b'_spyr = cah_child_birth_yr_sp if shared_order_sp==`b'
+	bysort unique_id partner_id (shared_birth`b'_spyr): replace shared_birth`b'_spyr = shared_birth`b'_spyr[1]
+}
+
+sort unique_id partner_id birth_id 
+
+browse unique_id partner_id birth_id shared_birth1_refid shared_birth2_refid shared_birth1_spid shared_birth2_spid shared_order_ref shared_order_sp shared_birth1_refyr shared_birth2_refyr shared_birth1_spyr shared_birth2_spyr cah_child_birth_yr_ref cah_child_birth_yr_sp
+
+collapse (max) shared_birth*_refid shared_birth*_spid shared_birth*_refyr shared_birth*_spyr num_shared_births_ref num_shared_births_sp, ///
+by (unique_id partner_id)
+
+browse unique_id partner_id num_shared_births_ref num_shared_births_sp shared_birth1_refid shared_birth2_refid shared_birth1_spid shared_birth2_spid shared_birth1_refyr shared_birth2_refyr shared_birth1_spyr shared_birth2_spyr 
+
+tab shared_birth1_refid num_shared_births_ref, m
+tab shared_birth1_refid if num_shared_births_ref!=0, m
+tab shared_birth1_spid if num_shared_births_sp!=0, m
+
+save "$temp/shared_birth_lookup.dta", replace
+
+********************************************************************************
+**# Intermission over
+********************************************************************************
+use "$created_data/PSID_couple_births.dta", clear
+
+********************************************************************************
+**# ALL BELOW HERE NEEDS TO BE REVISITED
+********************************************************************************
 
 ** This is trying to increment births DURING the survey period
 // okay NEW problem, what if birth happens in an off year when the survey is biennial? right now, acting like no birth, but that is not right... GAH. add one to all of those? (basically if it's after 1997 and even year? so if birth is in 1998, let's record in 1999. OR should I record in 1997 because then we can say that is like "conception" so might not even need to lag the HH indicators?) okay also think about this gah. first let's create a flag to understand how many births, in general, are in off years
