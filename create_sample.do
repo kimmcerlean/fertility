@@ -344,6 +344,8 @@ sum joint_first_birth_timing if joint_first_birth_rel==1
 	// u: 3163001 p: 3163002 rel: 1997 birth: 1983. 3163001 in survey AND in pair 1997-2003. 3163002 in survey 1997-2021, but only in pair 1997-2003.
 	// u: 4448001 p: 4448002 rel: 2017 birth: 1992. 4448001 in survey AND in pair 2017-2021. 4448002 same.
 	// u: 6721172 p: 6721173 rel: 2010 birth: 2004. 6721172 in survey 2003-2021, but in pair starting 2011-2021. 6721173 in survey 2009, but in pair 2011-2021.
+	
+** Designate if first birth AND second birth were together (with no other births from either partner before)
 
 ** Designate if entered rel already having had a birth
 gen num_births_pre_ref=0
@@ -452,9 +454,133 @@ tab shared_birth1_spid if num_shared_births_sp!=0, m
 save "$temp/shared_birth_lookup.dta", replace
 
 ********************************************************************************
-**# Intermission over
+**# Intermission over - add this info back to original file
 ********************************************************************************
 use "$created_data/PSID_couple_births.dta", clear
+
+merge m:1 unique_id partner_id using "$temp/shared_birth_lookup.dta"
+drop _merge
+
+browse unique_id partner_id num_shared_births_ref num_shared_births_sp shared_birth1_refid shared_birth2_refid shared_birth1_spid shared_birth2_spid shared_birth1_refyr shared_birth2_refyr shared_birth1_spyr shared_birth2_spyr 
+
+// compile some descriptive info to help me wrap my head around the info
+* Had pre-marital birth: wife
+gen pre_rel_birth_wife = .
+replace pre_rel_birth_wife = 0 if num_births_pre_indv_ref==0 & SEX==2
+replace pre_rel_birth_wife = 0 if num_births_pre_indv_sp==0 & SEX==1
+replace pre_rel_birth_wife = 1 if num_births_pre_indv_ref>0 & SEX==2
+replace pre_rel_birth_wife = 1 if num_births_pre_indv_sp>0 & SEX==1
+
+tab pre_rel_birth_wife, m
+unique unique_id partner_id, by(pre_rel_birth_wife)
+
+* Had pre-marital birth: husband
+gen pre_rel_birth_husb = .
+replace pre_rel_birth_husb = 0 if num_births_pre_indv_ref==0 & SEX==1
+replace pre_rel_birth_husb = 0 if num_births_pre_indv_sp==0 & SEX==2
+replace pre_rel_birth_husb = 1 if num_births_pre_indv_ref>0 & SEX==1
+replace pre_rel_birth_husb = 1 if num_births_pre_indv_sp>0 & SEX==2
+
+tab pre_rel_birth_husb, m
+unique unique_id partner_id, by(pre_rel_birth_husb)
+
+* Had pre-marital birth: either
+tab num_births_pre_indv_ref num_births_pre_indv_sp, m
+tab any_births_pre_rel
+unique unique_id partner_id, by(any_births_pre_rel)
+
+* Had all births together
+tab all_births_shared, m
+tab all_births_shared
+unique unique_id partner_id, by(all_births_shared)
+tab joint_first_birth all_births_shared, row // % of people with joint first birth who had all births together
+
+* Had joint first birth - observed in data
+sort unique_id partner_id survey_yr
+browse unique_id partner_id survey_yr rel_start_yr joint_first_birth joint_first_birth_yr joint_first_birth_rel joint_first_birth_timing
+tab joint_first_birth_yr joint_first_birth, m
+tab joint_first_birth if joint_first_birth_yr >=1985, m
+unique unique_id partner_id if joint_first_birth_yr >=1985, by(joint_first_birth)
+
+* Average time between relationship start and first birth
+tab joint_first_birth_timing joint_first_birth, m 
+sum joint_first_birth_timing if joint_first_birth==1, detail
+sum joint_first_birth_timing if joint_first_birth_rel==1, detail
+
+* Average time elapsed since relationship start without a birth
+* Average time elapsed since first birth without a second birth
+* Percent with joint first birth PRE relationship start
+tab joint_first_birth joint_first_birth_rel, m row // just of those with joint first birth
+tab joint_first_birth_rel, m // total sample
+unique unique_id partner_id, by(joint_first_birth_rel)
+
+* Joint first and second birth - both observed in data
+* Average time between first birth and second birth
+* Second birth together, but not first (or first not observed)
+
+* Ever parents: shared birth
+tab num_shared_births_ref num_shared_births_sp , m row
+gen any_shared_births=.
+replace any_shared_births=0 if num_shared_births_ref==0 & num_shared_births_sp==0
+replace any_shared_births=1 if (num_shared_births_ref> 0 & num_shared_births_ref!=.) | (num_shared_births_sp> 0 & num_shared_births_sp!=.)
+tab any_shared_births, m
+unique unique_id partner_id, by(any_shared_births)
+
+* Num of births: any births shared
+tab num_shared_births_ref any_shared_births, m cell // this is right then
+
+unique unique_id partner_id if any_shared_births==1, by(num_shared_births_ref)
+unique unique_id partner_id if any_shared_births==1, by(num_shared_births_sp)
+
+* Ever parents: all births shared
+tab num_shared_births_ref num_shared_births_sp if all_births_shared==1, m // okay, so perfect congruence here
+
+* Num of births: all births shared
+tab num_shared_births_ref if all_births_shared==1, m 
+tab num_shared_births_ref all_births_shared, m cell // this is right then
+
+unique unique_id partner_id if all_births_shared==1, by(num_shared_births_ref)
+unique unique_id partner_id if all_births_shared==1, by(num_shared_births_sp)
+
+tab cah_num_bio_kids_ref  cah_num_bio_kids_sp, row
+
+* Ever parents: women
+gen num_bio_kids_wife = .
+replace num_bio_kids_wife = cah_num_bio_kids_ref if SEX==2
+replace num_bio_kids_wife = cah_num_bio_kids_sp if SEX==1
+replace num_bio_kids_wife = 4 if num_bio_kids_wife>=4 & num_bio_kids_wife < 90
+replace num_bio_kids_wife = . if num_bio_kids_wife==98
+
+gen ever_birth_wife = .
+replace ever_birth_wife=0 if num_bio_kids_wife==0
+replace ever_birth_wife=1 if num_bio_kids_wife > 0 & num_bio_kids_wife < 90
+tab num_bio_kids_wife ever_birth_wife, m
+
+tab ever_birth_wife, m
+unique unique_id partner_id, by(ever_birth_wife)
+
+* Num of births: women
+tab num_bio_kids_wife, m
+unique unique_id partner_id, by(num_bio_kids_wife)
+
+* Ever parents: men
+gen num_bio_kids_husb = .
+replace num_bio_kids_husb = cah_num_bio_kids_ref if SEX==1
+replace num_bio_kids_husb = cah_num_bio_kids_sp if SEX==2
+replace num_bio_kids_husb = 4 if num_bio_kids_husb>=4 & num_bio_kids_husb < 90
+replace num_bio_kids_husb = . if num_bio_kids_husb==98
+
+gen ever_birth_husb = .
+replace ever_birth_husb=0 if num_bio_kids_husb==0
+replace ever_birth_husb=1 if num_bio_kids_husb > 0 & num_bio_kids_husb < 90
+tab num_bio_kids_husb ever_birth_husb, m
+
+tab ever_birth_husb, m
+unique unique_id partner_id, by(ever_birth_husb)
+
+* Num of births: men
+tab num_bio_kids_husb, m
+unique unique_id partner_id, by(num_bio_kids_husb)
 
 ********************************************************************************
 **# ALL BELOW HERE NEEDS TO BE REVISITED
