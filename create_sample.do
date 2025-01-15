@@ -344,8 +344,6 @@ sum joint_first_birth_timing if joint_first_birth_rel==1
 	// u: 3163001 p: 3163002 rel: 1997 birth: 1983. 3163001 in survey AND in pair 1997-2003. 3163002 in survey 1997-2021, but only in pair 1997-2003.
 	// u: 4448001 p: 4448002 rel: 2017 birth: 1992. 4448001 in survey AND in pair 2017-2021. 4448002 same.
 	// u: 6721172 p: 6721173 rel: 2010 birth: 2004. 6721172 in survey 2003-2021, but in pair starting 2011-2021. 6721173 in survey 2009, but in pair 2011-2021.
-	
-** Designate if first birth AND second birth were together (with no other births from either partner before)
 
 ** Designate if entered rel already having had a birth
 gen num_births_pre_ref=0
@@ -454,7 +452,8 @@ tab shared_birth1_spid if num_shared_births_sp!=0, m
 save "$temp/shared_birth_lookup.dta", replace
 
 ********************************************************************************
-**# Intermission over - add this info back to original file
+**# Intermission over
+* Add this info back to original file and get some descriptives / make some more new variables
 ********************************************************************************
 use "$created_data/PSID_couple_births.dta", clear
 
@@ -507,16 +506,157 @@ tab joint_first_birth_timing joint_first_birth, m
 sum joint_first_birth_timing if joint_first_birth==1, detail
 sum joint_first_birth_timing if joint_first_birth_rel==1, detail
 
-* Average time elapsed since relationship start without a birth
-* Average time elapsed since first birth without a second birth
 * Percent with joint first birth PRE relationship start
 tab joint_first_birth joint_first_birth_rel, m row // just of those with joint first birth
 tab joint_first_birth_rel, m // total sample
 unique unique_id partner_id, by(joint_first_birth_rel)
 
-* Joint first and second birth - both observed in data
+* Joint first and second birth - both observed in data. Variables need to be created
+tab cah_sharedchild2_ref cah_sharedchild2_sp, m
+
+browse unique_id partner_id survey_yr joint_first_birth joint_first_birth_yr shared_birth1_refid shared_birth2_refid shared_birth3_refid shared_birth1_spid shared_birth2_spid shared_birth3_spid shared_birth1_refyr shared_birth2_refyr shared_birth3_refyr shared_birth1_spyr shared_birth2_spyr shared_birth3_spyr cah_sharedchild1_ref cah_sharedchild2_ref cah_sharedchild3_ref cah_sharedchild1_sp cah_sharedchild2_sp cah_sharedchild3_sp cah_child_birth_yr1_ref cah_child_birth_yr2_ref cah_child_birth_yr3_ref cah_child_birth_yr1_sp cah_child_birth_yr2_sp cah_child_birth_yr3_sp
+
+	/// either both of these shared birth indicators (1 v. 0) needs to be 1 for both first and second birth for ref and spouse
+	browse unique_id partner_id survey_yr joint_first_birth joint_first_birth_yr cah_sharedchild1_ref cah_sharedchild2_ref cah_sharedchild3_ref cah_child_birth_yr1_ref cah_child_birth_yr2_ref cah_child_birth_yr3_ref cah_sharedchild1_sp cah_sharedchild2_sp cah_sharedchild3_sp cah_child_birth_yr1_sp cah_child_birth_yr2_sp cah_child_birth_yr3_sp
+	
+	gen joint_second_birth_opt1 = .
+	// replace joint_second_birth_opt1 = 0 if cah_sharedchild2_ref==0 | cah_sharedchild2_sp==0 // so this means 0 becomes just those with at least a second birth? So missing captures those without a second birth, so could have had first birth?
+	replace joint_second_birth_opt1 = 1 if cah_sharedchild1_ref==1 & cah_sharedchild1_sp==1 & cah_sharedchild2_ref==1 & cah_sharedchild2_sp==1
+	
+	tab joint_second_birth_opt1, m
+	tab joint_first_birth joint_second_birth_opt1, m
+	
+	tab cah_child_birth_yr2_ref cah_child_birth_yr2_sp if joint_second_birth_opt1==1 // not 100% perfect
+
+	// following the first birth coding - the joint first birth captures making sure all of the ids for birth 1 match (because that's how that variable was created)
+	gen joint_second_birth_opt2 = .
+	replace joint_second_birth_opt2 = 1 if joint_first_birth==1 & cah_unique_id_child2_ref == cah_unique_id_child2_sp & cah_unique_id_mom2_ref == cah_unique_id_mom2_sp & cah_unique_id_dad2_ref == cah_unique_id_dad2_sp & cah_child_birth_yr2_ref == cah_child_birth_yr2_sp & cah_unique_id_child2_ref!=0 & cah_unique_id_child2_ref!=9999999
+	
+	tab joint_second_birth_opt2, m
+	tab joint_first_birth joint_second_birth_opt2, m
+	
+	tab joint_second_birth_opt1 joint_second_birth_opt2, m // see how well aligned. okay like 300 records are off between the two
+	
+	tab cah_child_birth_yr2_ref cah_child_birth_yr2_sp if joint_second_birth_opt2==1 // right so these definitely match because I coded it that way
+		
+	/// or the shared birth history (created in intermission) needs to indicate that shared births 1 and 2 are also birth ids 1 and 2 for ref and partner??
+	browse unique_id partner_id survey_yr joint_first_birth joint_first_birth_yr shared_birth1_refid shared_birth2_refid shared_birth3_refid shared_birth1_spid shared_birth2_spid shared_birth3_spid shared_birth1_refyr shared_birth2_refyr shared_birth3_refyr shared_birth1_spyr shared_birth2_spyr shared_birth3_spyr
+
+	gen joint_second_birth_opt3 = .
+	replace joint_second_birth_opt3 = 1 if shared_birth1_refid==1 & shared_birth2_refid==2 & shared_birth1_spid==1 & shared_birth2_spid==2
+	
+	tab joint_second_birth_opt3, m
+	tab joint_first_birth joint_second_birth_opt3, m
+
+	tab joint_second_birth_opt1 joint_second_birth_opt3, m cell // see how well aligned - so option 1 and 3 are exactly aligned. which I think makes sense based on how coded
+	tab joint_second_birth_opt2 joint_second_birth_opt3, m cell // see how well aligned - so option 2 also makes sure all of the details from birth 2 match. is that realistic? like if one partner has a missing birth year, but otherwise they seem to match, do we want that?
+	
+	// these are those not captured with id match
+	browse unique_id partner_id survey_yr joint_first_birth joint_first_birth_yr shared_birth1_refid shared_birth2_refid shared_birth3_refid shared_birth1_spid shared_birth2_spid shared_birth3_spid shared_birth1_refyr shared_birth2_refyr shared_birth3_refyr shared_birth4_refyr shared_birth1_spyr shared_birth2_spyr shared_birth3_spyr shared_birth4_spyr cah_sharedchild1_ref cah_sharedchild2_ref cah_sharedchild3_ref cah_sharedchild1_sp cah_sharedchild2_sp cah_sharedchild3_sp cah_child_birth_yr1_ref cah_child_birth_yr2_ref cah_child_birth_yr3_ref cah_child_birth_yr1_sp cah_child_birth_yr2_sp cah_child_birth_yr3_sp if joint_second_birth_opt1==1 & joint_second_birth_opt2==.
+	// two things: some have the dates flipped for some reason (so like 2002 then 2000), but others have like one partner with more births than the other, so one has 1990, 1992, 1995. the other just has 1992, 1995.
+	// so really would want the former but not the latter.
+		
+	// captured with id match but not otherwise - most of these are because the id is missing woops.
+	browse unique_id partner_id survey_yr joint_second_birth_opt2 joint_first_birth joint_first_birth_yr shared_birth1_refid shared_birth2_refid shared_birth3_refid shared_birth1_spid shared_birth2_spid shared_birth3_spid shared_birth1_refyr shared_birth2_refyr shared_birth3_refyr shared_birth1_spyr shared_birth2_spyr shared_birth3_spyr cah_sharedchild1_ref cah_sharedchild2_ref cah_sharedchild3_ref cah_sharedchild1_sp cah_sharedchild2_sp cah_sharedchild3_sp cah_child_birth_yr1_ref cah_child_birth_yr2_ref cah_child_birth_yr3_ref cah_child_birth_yr1_sp cah_child_birth_yr2_sp cah_child_birth_yr3_sp if joint_second_birth_opt1==. & joint_second_birth_opt2==1
+	
+// get actual descriptives: joint second birth, total
+tab joint_second_birth_opt2, m
+unique unique_id partner_id, by(joint_second_birth_opt2)
+
+// joint second birth, just had first birth together
+tab joint_first_birth joint_second_birth_opt2, m row
+unique unique_id partner_id if joint_first_birth==1 & joint_second_birth_opt2==1 // validate same as above
+
 * Average time between first birth and second birth
-* Second birth together, but not first (or first not observed)
+gen joint_second_birth_yr =.
+replace joint_second_birth_yr = cah_child_birth_yr2_ref if joint_second_birth_opt2==1
+
+tab joint_second_birth_yr joint_second_birth_opt2, m
+
+gen joint_second_birth_timing = .
+replace joint_second_birth_timing = joint_second_birth_yr - joint_first_birth_yr if joint_second_birth_opt2==1
+
+tab joint_second_birth_timing joint_second_birth_opt2, m
+sum joint_second_birth_timing if joint_second_birth_opt2==1, detail
+sum joint_second_birth_timing if joint_second_birth_opt2==1 & joint_second_birth_timing>=0 & joint_second_birth_timing!=., detail // essentially matches above bc the negatives are so small
+
+* Second birth together, but not first (or first not observed). is this both partners first not together, or what if it's one partner's first birth and other's second? so let's make this "later first birth" THEN...
+* Do I mean (a) this is both of their second births and it's together, but first wasn't together for either.
+* OR (b) they had a second birth together following a first birth together BUT that first birth didn't need to be their individual first births. I think this??
+* So this would be a combo of first need to have either joint first birth OR later first birth.. THEN second birth. BUT problem is that second birth won't nec be number two. so like below, just both first and second shared birth can't be missing? is that actually sufficient?
+
+	// want to see something real quick
+	gen joint_first_birth_alt=.
+	replace joint_first_birth_alt = 0 if shared_birth1_refid!=1 | shared_birth1_spid!=1
+	replace joint_first_birth_alt = 1 if shared_birth1_refid==1 & shared_birth1_spid==1
+	tab joint_first_birth joint_first_birth_alt, m // essentially the same. so my joint first birth is ALSO that this is first birth EVER not like, they had a birth together, but could have also had births with others prior
+	
+	// so this should actually first be how many couples have a birth together, but also had a birth NOT together before (at least one of them) - this is where I get confused, is this that the shared first birth id is not 1 for either of them?
+	gen later_first_birth=.
+	replace later_first_birth=1 if shared_birth1_refid!=. & shared_birth1_spid!=. & (shared_birth1_refid>1 | shared_birth1_spid>1) // so they had to have a first birth together - aka neither is missing BUT for at least one of them, it's not their total first birth
+	
+	tab joint_first_birth later_first_birth, m // there should be no overlap
+	tab later_first_birth, m
+	unique unique_id partner_id, by(later_first_birth)
+	
+	tab shared_birth1_refyr shared_birth1_spyr if later_first_birth==1
+	// browse shared_birth1_refyr shared_birth1_spyr if later_first_birth==1
+	
+	egen later_first_birth_yr = rowmin(shared_birth1_refyr shared_birth1_spyr) if later_first_birth==1
+	// tab later_first_birth_yr later_first_birth, m
+	// browse unique_id partner_id later_first_birth later_first_birth_yr shared_birth1_refyr shared_birth1_spyr
+	gen later_first_birth_timing = .
+	replace later_first_birth_timing = later_first_birth_yr - rel_start_yr if later_first_birth==1 & later_first_birth_yr!=9998
+	// tab later_first_birth_timing later_first_birth, m
+	sum later_first_birth_timing if later_first_birth==1, detail
+	sum later_first_birth_timing if later_first_birth==1 & later_first_birth_timing>=0 & later_first_birth_timing!=., detail // just if AFTER rel start
+	
+	// at least one shared birth - should be the sum of joint_first_birth + later first birth?
+	gen shared_first_birth = .
+	replace shared_first_birth = 1 if shared_birth1_refid!=. & shared_birth1_spid!=.
+	tab shared_first_birth, m
+	unique unique_id partner_id, by(shared_first_birth)
+	tab shared_first_birth joint_first_birth, m
+	tab shared_first_birth later_first_birth, m
+	// tab shared_birth1_refyr shared_birth1_spyr if shared_first_birth==1
+	// browse shared_birth1_refyr shared_birth1_spyr if shared_first_birth==1
+	
+	egen shared_first_birth_yr = rowmin(shared_birth1_refyr shared_birth1_spyr) if shared_first_birth==1
+	// tab shared_first_birth_yr shared_first_birth, m
+	// browse unique_id partner_id shared_first_birth shared_first_birth_yr shared_birth1_refyr shared_birth1_spyr
+	gen shared_first_birth_timing = .
+	replace shared_first_birth_timing = shared_first_birth_yr - rel_start_yr if shared_first_birth==1 & shared_first_birth_yr!=9998
+	// tab shared_first_birth_timing shared_first_birth, m
+	sum shared_first_birth_timing if shared_first_birth==1, detail
+	sum shared_first_birth_timing if shared_first_birth==1 & shared_first_birth_timing>=0 & shared_first_birth_timing!=., detail // just if AFTER rel start
+
+	browse unique_id partner_id survey_yr joint_first_birth joint_first_birth_yr later_first_birth shared_birth1_refid shared_birth2_refid shared_birth3_refid shared_birth1_spid shared_birth2_spid shared_birth3_spid shared_birth1_refyr shared_birth2_refyr shared_birth3_refyr shared_birth1_spyr shared_birth2_spyr shared_birth3_spyr
+	
+* Now, couples that had a first birth together AND a second birth together, but this doesn't need to be their first and second births total (option b above)
+gen shared_second_birth = .
+replace shared_second_birth = 1 if shared_birth1_refid!=. & shared_birth1_spid!=. & shared_birth2_refid!=. & shared_birth2_spid!=. // like, is it this easy?
+tab shared_second_birth, m
+tab shared_first_birth shared_second_birth, m row
+
+unique unique_id partner_id, by(shared_second_birth)
+
+egen shared_second_birth_yr = rowmax(shared_birth2_refyr shared_birth2_spyr) if shared_second_birth==1 & shared_birth2_refyr!=9998 & shared_birth2_spyr!=9998
+// tab shared_second_birth_yr shared_second_birth, m
+// browse unique_id partner_id shared_second_birth shared_second_birth_yr shared_birth2_refyr shared_birth2_spyr 
+gen shared_second_birth_timing = .
+replace shared_second_birth_timing = shared_second_birth_yr - shared_first_birth_yr if shared_second_birth==1 & shared_second_birth_yr!=9998 & shared_first_birth_yr!=9998
+// tab shared_second_birth_timing shared_second_birth, m
+
+sum shared_second_birth_timing if shared_second_birth==1, detail
+
+// 	browse unique_id partner_id survey_yr shared_first_birth shared_first_birth_yr shared_second_birth shared_second_birth_yr shared_second_birth_timing shared_birth1_refid shared_birth2_refid shared_birth3_refid shared_birth1_spid shared_birth2_spid shared_birth3_spid shared_birth1_refyr shared_birth2_refyr shared_birth3_refyr shared_birth1_spyr shared_birth2_spyr shared_birth3_spyr
+
+* Average time elapsed since relationship start without a birth - this might be easier to do later once I figure out samples and such
+// would this be last year observed minus relationship start if shared_first_birth==.?
+browse unique_id partner_id survey_yr last_survey_yr rel_start_yr shared_first_birth shared_first_birth_yr shared_second_birth shared_second_birth_yr
+
+* Average time elapsed since first birth without a second birth
+// would this be last year observed minus first birth year if shared_first_birth==1 & shared_second_birth==.?
 
 * Ever parents: shared birth
 tab num_shared_births_ref num_shared_births_sp , m row
@@ -525,6 +665,8 @@ replace any_shared_births=0 if num_shared_births_ref==0 & num_shared_births_sp==
 replace any_shared_births=1 if (num_shared_births_ref> 0 & num_shared_births_ref!=.) | (num_shared_births_sp> 0 & num_shared_births_sp!=.)
 tab any_shared_births, m
 unique unique_id partner_id, by(any_shared_births)
+
+tab any_shared_births shared_first_birth, m // validate against shared first birth measure created above
 
 * Num of births: any births shared
 tab num_shared_births_ref any_shared_births, m cell // this is right then
@@ -543,6 +685,13 @@ unique unique_id partner_id if all_births_shared==1, by(num_shared_births_ref)
 unique unique_id partner_id if all_births_shared==1, by(num_shared_births_sp)
 
 tab cah_num_bio_kids_ref  cah_num_bio_kids_sp, row
+
+* Pre-marital births ONLY - no shared births
+tab any_births_pre_rel, m
+tab any_births_pre_rel any_shared_births, m cell // basically the 1 for pre but 0 for shared?
+tab any_births_pre_rel later_first_birth, m cell
+
+unique unique_id partner_id if any_births_pre_rel==1 & any_shared_births==0
 
 * Ever parents: women
 gen num_bio_kids_wife = .
@@ -581,6 +730,8 @@ unique unique_id partner_id, by(ever_birth_husb)
 * Num of births: men
 tab num_bio_kids_husb, m
 unique unique_id partner_id, by(num_bio_kids_husb)
+
+save "$created_data/PSID_couple_births_shared.dta", replace
 
 ********************************************************************************
 **# ALL BELOW HERE NEEDS TO BE REVISITED
