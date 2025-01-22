@@ -1,4 +1,5 @@
 global homedir "G:\Other computers\My Laptop\Documents"
+// global homedir "T:" // PRC server
 
 * This is the base directory with the setup files.
 * It is the directory you should change into before executing any files
