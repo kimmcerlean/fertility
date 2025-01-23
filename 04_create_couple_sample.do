@@ -3,210 +3,167 @@
 * Project: Policy and Fertility
 * Owner: Kimberly McErlean
 * Started: October 2024
-* File: create_sample
+* File: create_couple_sample
 ********************************************************************************
 ********************************************************************************
 
 ********************************************************************************
 * Description
 ********************************************************************************
-* This files takes sample of couples and restricts it to fertility sample
-* (couple sample created for growth curve project - in weequalize data creation folder)
+* This files takes the individual data and first couples all couples
+* it adds various birth history information to then create fertility samples
+* Code based off of primary PSID data creation code for project with some modifications
 
 ********************************************************************************
-* First, create a lookup file of children and their parents with the unique ID I can link back to other files
+**# First, restrict file to couples only and fill in marital history info
 ********************************************************************************
-use "$fam_history/pid21.dta", clear
+use "$created_data\PSID_individ_allyears.dta", clear
 
-// (ER30001 * 1000) + ER30002
-// (1968 interview ID multiplied by 1000) plus Person Number
+tab in_sample,m 
+tab partnered, m
+tab relationship MARITAL_PAIRS_, m
+tab partnered MARITAL_PAIRS_, m
+browse unique_id survey_yr in_sample relationship partnered MARITAL_PAIRS_
 
-gen unique_id_child = (PID2*1000) + PID3 // this is what I will match to below
-browse PID2 PID3 unique_id_child
+gen partnered_full = partnered
+replace partnered_full = 0 if partnered_full==. & MARITAL_PAIRS_==0
+replace partnered_full = 1 if partnered_full==. & inrange(MARITAL_PAIRS_,1,4)
+tab partnered_full, m
 
-gen unique_id_mom = (PID4*1000) + PID5 // these will be for reference
-browse PID4 PID5 unique_id_mom PID19
-rename PID19 in_cah_mom
+unique unique_id, by(partnered_full)
+unique unique_id if partnered_full==1 | partnered_full==.
+browse unique_id survey_yr in_sample relationship partnered_full MARITAL_PAIRS_  MARST_DEFACTO_HEAD_ MARST_LEGAL_HEAD_
 
-gen has_birth_mom_info=0
-replace has_birth_mom_info=1 if inrange(PID5,1,999)
-tab has_birth_mom_info // okay this matches codebook - 43015
+label define marr_defacto 1 "Partnered" 2 "Single" 3 "Widowed" 4 "Divorced" 5 "Separated"
+label values MARST_DEFACTO_HEAD_ marr_defacto
 
-tab has_birth_mom_info in_cah_mom, row // so like 79% of those with info recorded in birth history. is this concerning? does that mean I should use this file? and not birth history?
+label define marr_legal 1 "Married" 2 "Single" 3 "Widowed" 4 "Divorced" 5 "Separated"
+label values MARST_LEGAL_HEAD_ marr_legal
 
-gen unique_id_dad = (PID23*1000) + PID24
-browse PID23 PID24 unique_id_dad PID37
-rename PID37 in_cah_dad
+keep if partnered_full==1 | partnered_full==. // so right now, partnered missing is an off survey year where the year prior they were in a relationship but the year after were not (or vice versa). leave for now until I get history and figure out if should be partnered or not.
 
-gen has_birth_dad_info=0
-replace has_birth_dad_info=1 if inrange(PID24,1,999)
-tab has_birth_dad_info // okay this matches codebook - 49539
+gen cohab_est_head=0
+replace cohab_est_head=1 if MARST_DEFACTO_HEAD_==1 & inlist(MARST_LEGAL_HEAD_,2,3,4,5) // will only apply after 1977
 
-tab has_birth_dad_info in_cah_dad, row
+gen marital_status_updated=.
+replace marital_status_updated=1 if MARST_DEFACTO_HEAD_==1 & cohab_est_head==0
+replace marital_status_updated=2 if MARST_DEFACTO_HEAD_==1 & cohab_est_head==1
+replace marital_status_updated=3 if MARST_DEFACTO_HEAD_==2
+replace marital_status_updated=4 if MARST_DEFACTO_HEAD_==3
+replace marital_status_updated=5 if MARST_DEFACTO_HEAD_==4
+replace marital_status_updated=6 if MARST_DEFACTO_HEAD_==5
 
-browse unique_id_child unique_id_mom unique_id_dad has_birth_mom_info has_birth_dad_info in_cah_mom in_cah_dad // some children have no birth parents? or adoptive (but less interested in that)
-tab has_birth_mom_info has_birth_dad_info, cell // so 30% have neither? okay, this matches what the codebook says: "Of the 102,074 individuals who do have records on the Parent Identification File, approximately two-thirds of the records contain identifiers for at least one biological or adoptive parent." unclear what to do about rest. maybe they are just people never observed as child (like if entered panel when adult) - so then their parents never in? this file specifically doesn't have any info on age or birth years
+label define marital_status_updated 1 "Married (or pre77)" 2 "Partnered" 3 "Single" 4 "Widowed" 5 "Divorced" 6 "Separated"
+label values marital_status_updated marital_status_updated
 
-keep unique_id_child unique_id_mom unique_id_dad has_birth_mom_info has_birth_dad_info in_cah_mom in_cah_dad
+tab marital_status_updated in_sample, m
+tab marital_status_updated relationship, m
 
-save "$temp\child_parent_lookup.dta", replace
+unique unique_id if relationship!=3
+unique unique_id if relationship==1 | relationship==2
 
-********************************************************************************
-**# * Then, sort out birth history data to append
-********************************************************************************
-use "$fam_history/cah85_21.dta", clear
+// add marital history so I can start to add relationship start and end dates
+merge m:1 unique_id using "$temp\psid_composition_history.dta" // try this for now
+drop partner_id // need to clean up some things I don't need in this file for now
 
-gen unique_id = (CAH3*1000) + CAH4
-browse CAH3 CAH4 unique_id
-gen unique_id_child = (CAH10*1000) + CAH11 // this is what I will match to above
-
-/* first rename relevant variables for ease*/
-rename CAH3 int_number
-rename CAH4 per_num
-rename CAH10 child_int_number
-rename CAH11 child_per_num
-rename CAH2 event_type  // 1 = childbirth 2 = adoption
-rename CAH106 num_children // analyze with record type
-rename CAH5 parent_sex
-rename CAH7 parent_birth_yr
-rename CAH6 parent_birth_mon
-rename CAH8 parent_marital_status
-rename CAH9 birth_order
-rename CAH12 child_sex
-rename CAH15 child_birth_yr
-rename CAH13 child_birth_mon
-rename CAH27 child_hispanicity
-rename CAH28 child_race1
-rename CAH29 child_race2
-rename CAH30 child_race3
-rename CAH100 mom_wanted
-rename CAH101 mom_timing
-rename CAH102 dad_wanted
-rename CAH103 dad_timing
-
-label define wanted 1 "Yes" 5 "No"
-label values mom_wanted dad_wanted wanted
-replace mom_wanted = . if inlist(mom_wanted,8,9)
-replace dad_wanted = . if inlist(dad_wanted,8,9)
-
-label define timing 1 "Not at that time" 2 "None" 3 "Didn't matter"
-label values mom_timing dad_timing timing
-replace mom_timing = . if inlist(mom_timing,8,9)
-replace dad_timing = . if inlist(dad_timing,8,9)
-
-gen no_children=0
-replace no_children=1 if child_int_number==0 & child_per_num==0 
-
-// now, I want to match the child birth parent info for later and before i make wide
-merge m:1 unique_id_child using "$temp\child_parent_lookup.dta"
-
-tab has_birth_dad_info has_birth_mom_info if _merge==2, cell // so about 70% of using only are those with no parent info, which makes sense. unsure about the remainder...
-tab in_cah_dad in_cah_mom if _merge==2, cell // the remainder are those where parents not recorded in history. are these children useful to me? I am sure I can recover their birth info later? revisit this
-
-tab _merge if unique_id_child==0 // master only - which makes sense, because they are people without children
-tab _merge if unique_id_child!=0 // so only 1.5% of those with a child id didn't have a match in pid
 drop if _merge==2
 drop _merge
 
-browse unique_id unique_id_child child_birth_yr child_birth_mon unique_id_mom unique_id_dad in_cah_dad in_cah_mom
+// filling in marital history (JUST marriages)
+browse unique_id survey_yr relationship partnered_full marital_status_updated FIRST_MARRIAGE_YR_START mh_yr_married1 marr1_start mh_yr_end1 marr1_end mh_status1 mh_yr_married2 marr2_start mh_yr_end2 marr2_end mh_yr_married3 mh_yr_end3 mh_yr_married4 mh_yr_end4 in_marital_history // so will compare what is provided in individual file, what is provided in MH, what I calculated based on observed transitions. will start with official martal history
 
-gen id_check=0
-replace id_check=1 if unique_id==unique_id_mom | unique_id==unique_id_dad
-tab id_check, m
-tab id_check if unique_id_child!=0 // yes, so unique_id is listed as either mom or dad in 96% of cases.
-	// browse unique_id unique_id_child child_birth_yr child_birth_mon unique_id_mom unique_id_dad in_cah_dad in_cah_mom if id_check==0 & unique_id_child!=0
-	// tab has_birth_mom_info has_birth_dad_info if id_check==0, cell
-
-// this is currently LONG - one record per birth. want to make WIDE
-local birthvars "int_number per_num unique_id child_int_number child_per_num unique_id_child event_type num_children parent_sex parent_birth_yr parent_birth_mon parent_marital_status birth_order child_sex child_birth_yr child_birth_mon child_hispanicity child_race1 child_race2 child_race3 mom_wanted mom_timing dad_wanted dad_timing unique_id_mom unique_id_dad"
-
-keep `birthvars'
-
-rename parent_birth_yr parent_birth_yr_0
-bysort unique_id: egen parent_birth_yr = min(parent_birth_yr_0)
-drop parent_birth_yr_0
-
-rename parent_birth_mon parent_birth_mon_0
-bysort unique_id: egen parent_birth_mon = min(parent_birth_mon_0)
-drop parent_birth_mon_0
-
-browse unique_id birth_order * // looks like the 98s are causing problems
-sort unique_id birth_order
-by unique_id: egen birth_rank = rank(birth_order), unique
-browse unique_id birth_order birth_rank child_birth_yr * 
-tab birth_rank birth_order
-
-tab event_type
-tab num_children
-
-gen num_bio_kids = num_children if event_type==1
-gen num_adoptive_kids = num_children if event_type==2
-bysort unique_id (num_bio_kids): replace num_bio_kids = num_bio_kids[1]
-bysort unique_id (num_adoptive_kids): replace num_adoptive_kids = num_adoptive_kids[1]
-replace num_adoptive_kids = 0 if num_adoptive_kids==.
-sort unique_id birth_order
-browse unique_id event_type num_children num_bio_kids num_adoptive_kids
-
-drop num_children
-
-reshape wide child_int_number child_per_num unique_id_child event_type parent_marital_status child_sex child_birth_yr child_birth_mon child_hispanicity child_race1 child_race2 child_race3 mom_wanted mom_timing dad_wanted dad_timing birth_order unique_id_mom unique_id_dad, i(int_number per_num unique_id parent_sex parent_birth_yr parent_birth_mon num_bio_kids num_adoptive_kids)  j(birth_rank) // num_children
-
-gen INTERVIEW_NUM_1968 = int_number
-
-foreach var in *{
-	rename `var' cah_`var' // so I know where it came from
+gen rel_number=.
+forvalues r=1/9{
+	replace rel_number=`r' if survey_yr >=mh_yr_married`r' & survey_yr <= mh_yr_end`r'
+}
+forvalues r=12/13{
+	replace rel_number=`r' if survey_yr >=mh_yr_married`r' & survey_yr <= mh_yr_end`r'
 }
 
-rename cah_int_number int_number
-rename cah_per_num per_num
-rename cah_unique_id unique_id
-rename cah_INTERVIEW_NUM_1968 INTERVIEW_NUM_1968
-gen partner_id = unique_id
+tab rel_number, m
+tab rel_number in_marital_history, m // so about half of the missing are bc not in marital history, but still a bunch otherwise
+tab rel_number marital_status_updated if in_marital_history==1, m // okay, so yes, the vast majority of missing are bc partnered, not married, so that makes sense.
 
-forvalues n=1/20{
-	rename cah_parent_marital_status`n' cah_parent_marst`n' // think getting too long for what I want to work
+gen rel_start_yr=.
+gen rel_end_yr=.
+gen rel_status=.
+
+forvalues r=1/9{
+	replace rel_start_yr=mh_yr_married`r' if rel_number==`r'
+	replace rel_end_yr=mh_yr_end`r' if rel_number==`r'
+	replace rel_status=mh_status`r' if rel_number==`r'
+}
+forvalues r=12/13{
+	replace rel_start_yr=mh_yr_married`r' if rel_number==`r'
+	replace rel_end_yr=mh_yr_end`r' if rel_number==`r'
+	replace rel_status=mh_status`r' if rel_number==`r'
 }
 
-foreach var in cah_*{
-	rename `var' `var'_ref // make a set for partner and a set for spouse
-	// gen `var'_sp = `var' // not working
+browse unique_id survey_yr marital_status_updated rel_number rel_start_yr rel_end_yr FIRST_MARRIAGE_YR_START mh_yr_married1 mh_yr_end1 mh_status1 mh_yr_married2 mh_yr_end2 mh_yr_married3 mh_yr_end3 mh_yr_married4 mh_yr_end4 in_marital_history
+
+gen flag=0
+replace flag=1 if rel_start_yr==. // aka need to add manually
+
+// so, right now, official relationship start and end filled in for those in marital history and not cohabiting. let's figure out the rest
+browse unique_id survey_yr marital_status_updated in_marital_history flag rel_start_yr rel_end_yr rel_start moved change_yr hh1_start hh2_start hh1_end hh2_end rel1_start rel1_end rel2_start rel2_end mh_yr_married1 mh_yr_end1 mh_yr_married2 mh_yr_end2
+browse unique_id survey_yr marital_status_updated in_marital_history rel_start_yr rel_end_yr rel_start moved change_yr hh1_start hh2_start hh1_end hh2_end rel1_start rel1_end rel2_start rel2_end if flag==1
+
+gen hhno_est=.
+forvalues h=1/5{
+	replace hhno_est=`h' if survey_yr >=hh`h'_start & survey_yr <= hh`h'_end
 }
 
-forvalues n=1/20{
-	gen cah_child_int_number`n'_sp = cah_child_int_number`n'_ref // need spouse version
-	gen cah_child_per_num`n'_sp = cah_child_per_num`n'_ref 
-	gen cah_unique_id_child`n'_sp = cah_unique_id_child`n'_ref 
-	gen cah_event_type`n'_sp = cah_event_type`n'_ref 
-	gen cah_parent_marst`n'_sp = cah_parent_marst`n'_ref 
-	gen cah_child_sex`n'_sp = cah_child_sex`n'_ref 
-	gen cah_child_birth_yr`n'_sp = cah_child_birth_yr`n'_ref 
-	gen cah_child_birth_mon`n'_sp = cah_child_birth_mon`n'_ref 
-	gen cah_child_hispanicity`n'_sp = cah_child_hispanicity`n'_ref 
-	gen cah_child_race1`n'_sp = cah_child_race1`n'_ref 
-	gen cah_child_race2`n'_sp = cah_child_race2`n'_ref 
-	gen cah_child_race3`n'_sp = cah_child_race3`n'_ref 
-	gen cah_mom_wanted`n'_sp = cah_mom_wanted`n'_ref 
-	gen cah_mom_timing`n'_sp = cah_mom_timing`n'_ref 
-	gen cah_dad_wanted`n'_sp = cah_dad_wanted`n'_ref 
-	gen cah_dad_timing`n'_sp = cah_dad_timing`n'_ref 
-	gen cah_birth_order`n'_sp = cah_birth_order`n'_ref
-	gen cah_unique_id_mom`n'_sp = cah_unique_id_mom`n'_ref 
-	gen cah_unique_id_dad`n'_sp = cah_unique_id_dad`n'_ref
+gen relno_est=.
+forvalues r=1/5{
+	replace relno_est=`r' if survey_yr >=rel`r'_start & survey_yr <= rel`r'_end
 }
 
-gen cah_num_bio_kids_sp = cah_num_bio_kids_ref
-gen cah_num_adoptive_kids_sp = cah_num_adoptive_kids_ref
+gen rel_start_yr_est=.
+gen rel_end_yr_est =.
+gen hh_start_yr_est=.
+gen hh_end_yr_est=.
 
-// browse unique_id cah_unique_id_child1_ref cah_child_birth_yr1_ref cah_unique_id_mom1_ref cah_unique_id_dad1_ref cah_unique_id_child2_ref cah_child_birth_yr2_ref cah_unique_id_mom2_ref cah_unique_id_dad2_ref cah_num_bio_kids_ref cah_num_adoptive_kids_ref
-   
-save "$temp\birth_history_wide.dta", replace
+forvalues r=1/5{
+	replace rel_start_yr_est=rel`r'_start if relno_est==`r'
+	replace rel_end_yr_est=rel`r'_end if relno_est==`r'
+	replace hh_start_yr_est=hh`r'_start if hhno_est==`r'
+	replace hh_end_yr_est=hh`r'_end if hhno_est==`r'
+}
 
-********************************************************************************
-**# Now import main data and append birth history / figure out births
-********************************************************************************
-use "$created_data/PSID_partners_cleaned.dta", clear
+egen max_start_yr_est = rowmax(hh_start_yr_est rel_start_yr_est)
+egen max_end_yr_est = rowmax(hh_end_yr_est rel_end_yr_est)
+egen min_start_yr_est = rowmin(hh_start_yr_est rel_start_yr_est)
+egen min_end_yr_est = rowmin(hh_end_yr_est rel_end_yr_est)
+// browse unique_id survey_yr max_start_yr_est max_end_yr_est hh_start_yr_est rel_start_yr_est hh_end_yr_est rel_end_yr_est
 
-browse unique_id FAMILY_INTERVIEW_NUM_ survey_yr RELATION_ 
+replace rel_start_yr = rel_start_yr_est if flag==1 & hh_start_yr_est==. // so use relationship if no HH info
+replace rel_end_yr = rel_end_yr_est if flag==1 & hh_end_yr_est==. // so use relationship if no HH info
+
+replace rel_start_yr = hh_start_yr_est if rel_start_yr_est==hh_start_yr_est & rel_start_yr_est!=. & hh_start_yr_est!=. & rel_start_yr==. // fill in if they match
+replace rel_start_yr = hh_start_yr_est if (abs(rel_start_yr_est-hh_start_yr_est)==1 | abs(rel_start_yr_est-hh_start_yr_est)==2) & rel_start_yr_est!=. & hh_start_yr_est!=. & rel_start_yr==. // fill in if they are just a year or two off in either direction (bc of biennial surveys)
+replace rel_start_yr = max_start_yr_est if rel_start_yr_est!=. & hh_start_yr_est!=. & rel_start_yr==. // I think the later date makes sense in these instances
+replace rel_start_yr = hh_start_yr_est if rel_start_yr==. & hh_start_yr_est!=.
+tab hh_start_yr_est if rel_start_yr==. , m
+tab rel_start_yr_est if rel_start_yr==. , m
+
+replace rel_end_yr = hh_end_yr_est if rel_end_yr_est==hh_end_yr_est & rel_end_yr_est!=. & hh_end_yr_est!=. & rel_end_yr==. // fill in if they match
+replace rel_end_yr = hh_end_yr_est if (abs(rel_end_yr_est-hh_end_yr_est)==1 | abs(rel_end_yr_est-hh_end_yr_est)==2) & rel_end_yr_est!=. & hh_end_yr_est!=. & rel_end_yr==. // fill in if they are just a year off in either direction
+replace rel_end_yr = hh_end_yr_est if rel_end_yr==. // use hh end if no rel end bc I think this better captures move outs then permanent attrits
+replace rel_end_yr = rel_end_yr_est if rel_end_yr==. // then for rest, use rel end, okay these are all missing
+tab hh_end_yr_est if rel_end_yr==. , m
+tab rel_end_yr_est if rel_end_yr==. , m
+
+tab rel_start_yr partnered_full, m // the missing for partnered missing may be bc those years are, in fact, outside the scope of the relationship
+tab rel_start_yr marital_status_updated, m // but still a decent amount missing for partnered, especially cohab
+
+browse unique_id survey_yr marital_status_updated in_marital_history rel_start_yr rel_end_yr mh_yr_married1 mh_yr_end1 mh_yr_married2 mh_yr_end2 mh_yr_married3 mh_yr_end3 hh_start_yr_est rel_start_yr_est hh_end_yr_est rel_end_yr_est rel1_start rel2_start rel3_start rel1_end rel2_end rel3_end
+
+// based on exploration - those missing rel start yr AND marital status are outside the bounds of the relationship
+drop if rel_start_yr==. & marital_status_updated==.
+drop if rel_start_yr==. & rel_start_yr_est==. // so also seems outside of my estimated bounds
+
+// add relationship duration
+gen relationship_duration = survey_yr - rel_start_yr
 
 // attempt to create partner ids
 gen id_ref=.
@@ -234,7 +191,10 @@ keep if rel_start_yr>=1990 & rel_start_yr!=. // my measures don't start until 19
 // browse unique_id partner_id survey_yr SEX AGE_INDV_ BIRTH_YR_INDV_ year_birth yr_born_head AGE_HEAD_ yr_born_wife AGE_WIFE_ // should I restrict to certain ages now? or later?
 keep if (AGE_HEAD_>=20 & AGE_HEAD_<=60) & (AGE_WIFE_>=20 & AGE_WIFE_<50) // Comolli using the PSID does 16-49 for women and < 60 for men, but I want a higher lower limit for measurement of education? In general, age limit for women tends to range from 44-49, will use the max of 49 for now. lower limit of 20 seems justifiable based on prior research (and could prob go even older)
 
-** Okay, start to add birth info in
+********************************************************************************
+**# Now append birth history / figure out births
+********************************************************************************
+
 // merge on birth history: respondent
 merge m:1 unique_id using "$temp\birth_history_wide.dta", keepusing(*_ref)
 drop if _merge==2

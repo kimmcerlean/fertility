@@ -14,7 +14,7 @@
 * Then recodes variables for congruence across time and for clarity
 * Then matches to focal person (based on relationship)
 
-use "$temp_psid\PSID_full_long.dta", clear // use long data for now, bc easier to manage
+use "$temp\PSID_full_long.dta", clear // use long data for now, bc easier to manage
 egen wave = group(survey_yr) // this will make years consecutive, easier for later
 
 ********************************************************************************
@@ -724,7 +724,7 @@ tab RELIGION_WIFE_ religion_wife, m
 // like with race/ethnicity, while this CAN change within people over time, there are going to be a lot of missing I think in the 70s/80s bc of who / when they asked so neeed to pull forward.
 // SO, when I have this assigned to the focal person, THEN figure out if I can fill in that info and reduce the amount of missings.
 
-save "$created_data_psid\PSID_individ_recodes.dta", replace
+save "$temp\PSID_individ_recodes.dta", replace
 
 ********************************************************************************
 **# Now assign variables to FOCAL person rather than just head / wife / individ
@@ -737,7 +737,7 @@ educ_completed educ_head_est educ_wife_est college_wife college_head college_ind
 // not sure I need these / can create with weekly hours: ft_pt_t1_head ft_pt_t1_wife ft_t1_head ft_t1_wife 
 */
 
-use "$created_data_psid\PSID_individ_recodes.dta", clear
+use "$temp\PSID_individ_recodes.dta", clear
 
 * Let's start with t-1 variables
 // weekly hours
@@ -977,12 +977,12 @@ TOTAL_WEEKS_T1_HEAD_ ANNUAL_HOURS2_T1_HEAD_ TOTAL_WEEKS_T1_WIFE_ ANNUAL_HOURS2_T
 START_YR_PREV_HEAD_ START_YR_PREV_WIFE_ WEEKLY_HRS_T2_INDV_ LABOR_INCOME_T2_INDV_ HOUSEWORK_INDV_ WEEKS_WORKED_T2_INDV_ DENOMINATION_HEAD_ ///
 DENOMINATION_WIFE_ id BIRTH_YR_INDV_ AGE_INDV_ RELEASE_ RELEASE_NUM2_ WELFARE_JOINT_ wave religion_1977_focal
 
-save "$created_data_psid\PSID_individ_recodes.dta", replace
+save "$temp\PSID_individ_recodes.dta", replace
 
 ********************************************************************************
 **# now reshape back to wide to fill in the off years with t-2 data where possible
 ********************************************************************************
-use "$created_data_psid\PSID_individ_recodes.dta", clear
+use "$temp\PSID_individ_recodes.dta", clear
 
 drop earnings_t1_wife earnings_t1_head weekly_hrs_t1_wife weekly_hrs_t1_head  weekly_hrs_t1_indv employed_head employed_wife employed_indv ///
 employed_t1_head employed_t1_wife employed_t1_indv ft_pt_t1_head ft_pt_t1_wife ft_t1_head ft_t1_wife housework_head housework_wife educ_completed ///
@@ -1005,7 +1005,7 @@ religion_focal religion_change weekly_hrs_t2_focal earnings_t2_focal employed_t2
 employed_t1_hrs_focal has_hours_t2 has_earnings_t2 new_in_hh ///
 , i(unique_id first_survey_yr last_survey_yr) j(survey_yr)
 
-misstable summarize *focal*, all
+// misstable summarize *focal*, all
 
 // weekly hours
 // gen weekly_hrs_t1_focal1998=weekly_hrs_t2_focal1999 // so, t-2 for 1999 becomes t-1 for 1998
@@ -1052,6 +1052,17 @@ forvalues y=1998(2)2020{
 	gen educ_focal`y'=.
 	replace educ_focal`y' = educ_focal`x' if educ_focal`x' == educ_focal`z'
 	label values educ_focal`y' educ
+}
+
+
+// same for marital pairs and a few other variables
+foreach var in MARITAL_PAIRS_ MARST_DEFACTO_HEAD_ MARST_LEGAL_HEAD_ relationship in_sample partnered{
+	forvalues y=1998(2)2020{
+		local z=`y'+1
+		local x=`y'-1
+		gen `var'`y'=.
+		replace `var'`y' = `var'`x' if `var'`x' == `var'`z'
+	}
 }
 
 // also need to realign the t-1 variables
@@ -1108,5 +1119,5 @@ replace educ_focal = max_educ_focal if max_educ_focal==1 & educ_focal==.
 
 browse unique_id survey_yr in_sample educ_focal first_educ_focal max_educ_focal
 
-save "$created_data_psid\PSID_individ_allyears.dta", replace
+save "$created_data\PSID_individ_allyears.dta", replace
 
