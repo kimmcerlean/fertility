@@ -733,6 +733,11 @@ unique unique_id partner_id, by(num_bio_kids_husb)
 
 save "$created_data/PSID_couple_births_shared.dta", replace
 
+// can I just keep the birth variables so I have that history and just add the individual data I created later?
+// so use this to create first and second birth samples?
+unique unique_id partner_id
+
+
 ********************************************************************************
 **# ALL BELOW HERE NEEDS TO BE REVISITED
 ********************************************************************************
