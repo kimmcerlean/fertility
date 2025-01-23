@@ -19,6 +19,8 @@
 ********************************************************************************
 use "$created_data\PSID_individ_allyears.dta", clear
 
+egen wave = group(survey_yr) // this will make years consecutive, easier for later
+
 tab in_sample,m 
 tab partnered, m
 tab relationship MARITAL_PAIRS_, m
@@ -166,30 +168,71 @@ drop if rel_start_yr==. & rel_start_yr_est==. // so also seems outside of my est
 gen relationship_duration = survey_yr - rel_start_yr
 
 // attempt to create partner ids
+// this will be harder with missing relationship info. but see if there is another way to fill it out based on the rel no variables I created above. also, what do I do about others?
+tab relationship, m
+
+gen relationship_est = relationship
+replace relationship_est = relationship[_n-1] if unique_id == unique_id[_n-1] & wave==wave[_n-1]+1 & relationship_est==.
+replace relationship_est = relationship[_n+1] if unique_id == unique_id[_n+1] & wave==wave[_n+1]-1 & relationship_est==.
+browse unique_id survey_yr wave FAMILY_INTERVIEW_NUM_ relationship_est relationship
+tab relationship_est, m
+
+label values relationship_est relationship
+
+browse unique_id main_fam_id FAMILY_INTERVIEW_NUM_ survey_yr in_sample relationship_est rel_number hhno_est relno_est 
+replace FAMILY_INTERVIEW_NUM_ = FAMILY_INTERVIEW_NUM_[_n-1] if unique_id == unique_id[_n-1] & wave==wave[_n-1]+1 & FAMILY_INTERVIEW_NUM_==.
+replace FAMILY_INTERVIEW_NUM_ = FAMILY_INTERVIEW_NUM_[_n+1] if unique_id == unique_id[_n+1] & wave==wave[_n+1]-1 & FAMILY_INTERVIEW_NUM_==.
+
+sort survey_yr FAMILY_INTERVIEW_NUM_
+browse unique_id main_fam_id FAMILY_INTERVIEW_NUM_ survey_yr in_sample relationship_est rel_number hhno_est relno_est 
+
+// wait a sec - there is no family interview number for missing years, so this will not work? okay need to revisit this GAH. can I do this based on the relationship number variables? or just fill in the interview numbers from the prio year? will this work for both people?
+
 gen id_ref=.
-replace id_ref = unique_id if inlist(RELATION_,1,10) 
-bysort survey_yr FAMILY_INTERVIEW_NUM_ (id_ref): replace id_ref = id_ref[1]
+replace id_ref = unique_id if relationship_est==1 
+bysort survey_yr main_fam_id FAMILY_INTERVIEW_NUM_ (id_ref): replace id_ref = id_ref[1]
 
 gen id_wife=.
-replace id_wife = unique_id if inlist(RELATION_,2,20,22) 
-bysort survey_yr FAMILY_INTERVIEW_NUM_ (id_wife): replace id_wife = id_wife[1]
+replace id_wife = unique_id if relationship_est==2
+bysort survey_yr main_fam_id FAMILY_INTERVIEW_NUM_ (id_wife): replace id_wife = id_wife[1]
 
-sort unique_id survey_yr
-browse unique_id FAMILY_INTERVIEW_NUM_ survey_yr RELATION_ id_ref id_wife
+sort survey_yr FAMILY_INTERVIEW_NUM_
+browse unique_id main_fam_id FAMILY_INTERVIEW_NUM_ survey_yr relationship_est id_ref id_wife
 
 gen partner_id=.
-replace partner_id = id_ref if inlist(RELATION_,2,20,22)  // so need opposite id
-replace partner_id = id_wife if inlist(RELATION_,1,10)
+replace partner_id = id_ref if relationship_est==2 // so need opposite id
+replace partner_id = id_wife if relationship_est==1
+unique partner_id
+unique unique_id
+unique unique_id partner_id
 
-browse unique_id FAMILY_INTERVIEW_NUM_ survey_yr RELATION_ partner_id id_ref id_wife
-sort unique_id survey_yr
+inspect partner_id if inlist(relationship_est,1,2)
 
-** Should I do sample restrictions here? need to reorient myself to who and what are included
+sort unique_id survey_yr // might I be able to fill in missing partner info from earlier years? need to also figure out if coding error or truly no partner in the HH in that year.
+browse unique_id partner_id survey_yr rel_start_yr rel_end_yr marital_status_updated main_fam_id FAMILY_INTERVIEW_NUM_  relationship_est id_ref id_wife
+replace partner_id = partner_id[_n-1] if unique_id == unique_id[_n-1] & rel_start_yr == rel_start_yr[_n-1] & wave==wave[_n-1]+1 & partner_id==.
+replace partner_id = partner_id[_n+1] if unique_id == unique_id[_n+1] & rel_start_yr == rel_start_yr[_n+1] & wave==wave[_n+1]-1 & partner_id==.
+
+********************************************************************************
+**# Add sample restrictions here?
+********************************************************************************
+**Remove if not head or wife (because won't have info?)
+keep if inlist(relationship_est,1,2)
+
 // browse unique_id partner_id survey_yr first_survey_yr rel_start rel_start_yr rel_start_yr_est mh_yr_married1 mh_yr_married2 mh_yr_married3 rel_end rel_end_pre rel_end_yr rel_end_yr_est
-keep if rel_start_yr>=1990 & rel_start_yr!=. // my measures don't start until 1990, and that works with "gender revolution" framing, so restrict to that
+keep if rel_start_yr>=1990 & rel_start_yr!=. // my measures don't start until 1990, and that works with "gender revolution" framing, so restrict to that. based on fertility decline, might actually need to start later? but this works for now.
 
-// browse unique_id partner_id survey_yr SEX AGE_INDV_ BIRTH_YR_INDV_ year_birth yr_born_head AGE_HEAD_ yr_born_wife AGE_WIFE_ // should I restrict to certain ages now? or later?
-keep if (AGE_HEAD_>=20 & AGE_HEAD_<=60) & (AGE_WIFE_>=20 & AGE_WIFE_<50) // Comolli using the PSID does 16-49 for women and < 60 for men, but I want a higher lower limit for measurement of education? In general, age limit for women tends to range from 44-49, will use the max of 49 for now. lower limit of 20 seems justifiable based on prior research (and could prob go even older)
+// should I restrict to certain ages now? or later?
+browse unique_id survey_yr relationship_est SEX birth_yr age_focal  // think the ages will be missing in some cases because I probably didn't carry these through. do for men and women separately? okay I actually removed age of head and wife oops. AGE_HEAD_ AGE_WIFE_ - considering adding in previous, but fine for now. bt I didn't carry through age focal
+replace age_focal = survey_yr - birth_yr if age_focal==. & birth_yr!=9999
+drop if age_focal<0
+
+// actually - I do want to wait until I have my partners matched. because I don't want to chop off couples in weird ways - like end up with mismatched records bc of the age differences.
+// keep if (AGE_HEAD_>=20 & AGE_HEAD_<=60) & (AGE_WIFE_>=20 & AGE_WIFE_<50) // Comolli using the PSID does 16-49 for women and < 60 for men, but I want a higher lower limit for measurement of education? In general, age limit for women tends to range from 44-49, will use the max of 49 for now. lower limit of 20 seems justifiable based on prior research (and could prob go even older)
+
+**# Bookmark #2
+// stopped here temporarily
+save "$created_data\PSID_couples_allyears.dta", replace
 
 ********************************************************************************
 **# Now append birth history / figure out births
