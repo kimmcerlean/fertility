@@ -1119,5 +1119,22 @@ replace educ_focal = max_educ_focal if max_educ_focal==1 & educ_focal==.
 
 browse unique_id survey_yr in_sample educ_focal first_educ_focal max_educ_focal
 
+// to use for coupled samples, add partner_id as well as spousal versions of the focal variables
+gen partner_id = unique_id
+
+foreach var in weekly_hrs_t1 earnings_t1 employed_t1_earn any_psid_births_t1 housework childcare adultcare employed educ college age raceth religion weekly_hrs_t2 earnings_t2 employed_t2 employed_t1_hrs max_educ raceth_fixed last_race first_educ weekly_hrs_t earnings_t any_psid_births_t{
+	gen `var'_sp = `var'_focal
+}
+
+foreach var in first_survey_yr last_survey_yr in_sample relationship moved change_yr partnered any_psid_births_t1_hh has_hours_t1 has_earnings_t1 has_hours_t2 has_earnings_t2 new_in_hh sample_type stratum cluster main_fam_id main_per_id SEX IN_UNIT SAMPLE_STATUS_TYPE SAMPLE YR_NONRESPONSE_RECENT YR_NONRESPONSE_FIRST FIRST_BIRTH_YR MARRIAGE_UPDATE NUM_MARRIED has_psid_gene permanent_attrit birth_yr any_psid_births_t_hh{
+	gen `var'_sp = `var'
+}
+
+foreach var in COR_IMM_WT_ X1968_PERSON_NUM_ SEQ_NUMBER_ RELATION_ MARITAL_PAIRS_ MOVED_ MOVED_MONTH_ MOVED_YEAR_ LONG_WT_ CROSS_SECTION_WT_ CORE_WEIGHT_ CROSS_SECTION_FAM_WT_ hh_status_{
+	gen `var'sp = `var'
+}
+
+// browse unique_id partner_id weekly_hrs_t1_focal weekly_hrs_t2_focal weekly_hrs_t_focal weekly_hrs_t1_sp weekly_hrs_t2_sp weekly_hrs_t_sp
+
 save "$created_data\PSID_individ_allyears.dta", replace
 

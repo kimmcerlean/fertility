@@ -735,10 +735,12 @@ unique unique_id partner_id, by(num_bio_kids_husb)
 
 ********************************************************************************
 **# Now, figure out first birth and second birth samples with a flag first
-* need to eventually add a. matched partner info, b. a flag for birth in year
-* c. remove observations after relevant birth (e.g. after first birth for that sample)
-* d. eventually deduplicate (so just one observation per year)
-* e. eventually do the age restrictions (once partner data matched)
+* need to eventually add
+* a. matched partner info - next file
+* b. a flag for birth in year - next file
+* c. remove observations after relevant birth (e.g. after first birth for that sample) - did here
+* d. eventually deduplicate (so just one observation per year) - did here
+* e. eventually do the age restrictions (once partner data matched) - next file
 ********************************************************************************
 // first birth sample
 tab any_births_pre_rel joint_first_birth, m // think some of this overlap if first birth pre rel start? but mostly, impossible to have pre-rel births AND have a joint first birth - which is the point
