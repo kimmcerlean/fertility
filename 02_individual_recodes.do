@@ -1056,7 +1056,7 @@ forvalues y=1998(2)2020{
 
 
 // same for marital pairs and a few other variables
-foreach var in MARITAL_PAIRS_ MARST_DEFACTO_HEAD_ MARST_LEGAL_HEAD_ relationship in_sample partnered{
+foreach var in MARITAL_PAIRS_ MARST_DEFACTO_HEAD_ MARST_LEGAL_HEAD_ relationship in_sample partnered STATE_{
 	forvalues y=1998(2)2020{
 		local z=`y'+1
 		local x=`y'-1
