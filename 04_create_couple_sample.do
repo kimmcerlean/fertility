@@ -869,6 +869,9 @@ keep if per_id==1
 
 tab SEX marital_status_updated, m // check - should be half of above. It's a little more bc I think sometimes partner info missing.
 
+unique unique_id partner_id
+unique unique_id partner_id, by(joint_first_birth)
+
 save "$created_data/PSID_first_birth_sample.dta", replace
 
 ********************************************************************************
@@ -911,6 +914,9 @@ browse unique_id partner_id per_id survey_yr main_fam_id FAMILY_INTERVIEW_NUM_
 keep if per_id==1
 
 tab SEX marital_status_updated, m // check - should be half of above. this is much closer
+
+unique unique_id partner_id
+unique unique_id partner_id, by(joint_second_birth_opt2)
 
 save "$created_data/PSID_second_birth_sample.dta", replace
 
