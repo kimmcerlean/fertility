@@ -828,66 +828,91 @@ save "$created_data/PSID_couple_births_shared.dta", replace
 ********************************************************************************
 **# Now create the specific sub files for each sample
 ********************************************************************************
-// save "$created_data/PSID_first_birth_sample.dta", replace
-// save "$created_data/PSID_second_birth_sample.dta", replace
-
 
 ********************************************************************************
-**# Now figure out other general sample restrictions
+* First births
 ********************************************************************************
-// first, need to just keep one record per HH (currently two) - this comes from growth curve file
+use "$created_data/PSID_couple_births_shared.dta", clear
 
-tab SEX marital_status_updated if SEX_HEAD_==1
-/* need to end up with this amount of respondents after the below
-           | marital_status_update
-    SEX OF |           d
-INDIVIDUAL | Married (  Partnered |     Total
------------+----------------------+----------
-      Male |   159,508     10,819 |   170,327 
-    Female |   159,508     10,803 |   170,311 
------------+----------------------+----------
-     Total |   319,016     21,622 |   340,638 
+keep if first_birth_sample_flag==1
+
+// now deduplicate. Is it fine to do this here? or should I have done earlier? ugh IDK.
+tab SEX marital_status_updated, m
+/* essentially want half of this at the end
+
+    SEX OF |                      marital_status_updated
+INDIVIDUAL | Married (  Partnered     Single   Divorced  Separated          . |     Total
+-----------+------------------------------------------------------------------+----------
+      Male |    11,701      2,679         41          4          4      2,210 |    16,639 
+    Female |    12,118      2,773         58          8         15      2,420 |    17,392 
+-----------+------------------------------------------------------------------+----------
+     Total |    23,819      5,452         99         12         19      4,630 |    34,031 
+
 */
 
-drop if SEX_HEAD_!=1
-tab rel_start_yr SEX, m // is either one's data more reliable?
+tab rel_start_yr, m // okay none missing, so don't need to figure out who has more info on partnership
 
-// keep only one respondent per household (bc all data recorded for all)
-sort survey_yr FAMILY_INTERVIEW_NUM_  unique_id   
-
-gen has_rel_info=0
-replace has_rel_info=1 if rel_start_yr!=.
-
-bysort survey_yr FAMILY_INTERVIEW_NUM_: egen rel_info = max(has_rel_info)
-
-* first drop the partner WITHOUT rel info if at least one of them does
-drop if has_rel_info==0 & rel_info==1
+sort FAMILY_INTERVIEW_NUM_ survey_yr unique_id partner_id
+browse unique_id partner_id survey_yr main_fam_id FAMILY_INTERVIEW_NUM_ // wait, does it matter if one partner kept sometimes and the other other times? or should be fine because sort order?
 
 *then rank the remaining members
-bysort survey_yr FAMILY_INTERVIEW_NUM_ : egen per_id = rank(unique_id) // so if there is only one member left after above, will get a 1
-browse survey_yr FAMILY_INTERVIEW_NUM_  unique_id per_id
+bysort survey_yr main_fam_id FAMILY_INTERVIEW_NUM_ : egen per_id = rank(unique_id)
+tab per_id, m // 1s / odd #s should approximately total above - there are only 1s and 2s okay
 
-tab per_id // 1s should approximately total above
+sort FAMILY_INTERVIEW_NUM_ survey_yr unique_id partner_id
+browse unique_id partner_id per_id survey_yr main_fam_id FAMILY_INTERVIEW_NUM_ 
+
+sort unique_id partner_id survey_yr
+browse unique_id partner_id per_id survey_yr main_fam_id FAMILY_INTERVIEW_NUM_ 
+
 keep if per_id==1
 
-tab marital_status_updated // check
+tab SEX marital_status_updated, m // check - should be half of above. It's a little more bc I think sometimes partner info missing.
 
-/*
-marital_status_upd |
-              ated |      Freq.     Percent        Cum.
--------------------+-----------------------------------
-Married (or pre77) |    159,316       93.69       93.69
-         Partnered |     10,730        6.31      100.00
--------------------+-----------------------------------
-             Total |    170,046      100.00
+save "$created_data/PSID_first_birth_sample.dta", replace
+
+********************************************************************************
+* Second births
+********************************************************************************
+use "$created_data/PSID_couple_births_shared.dta", clear
+
+keep if second_birth_sample_flag_cons==1 // starting with CONSERVATIVE sample
+
+// now deduplicate
+tab SEX marital_status_updated, m
+/* essentially want half of this at the end
+
+    SEX OF |                      marital_status_updated
+INDIVIDUAL | Married (  Partnered     Single   Divorced  Separated          . |     Total
+-----------+------------------------------------------------------------------+----------
+      Male |     9,691      1,270         16          1          2        856 |    11,836 
+    Female |     9,719      1,272         11          1          2        844 |    11,849 
+-----------+------------------------------------------------------------------+----------
+     Total |    19,410      2,542         27          2          4      1,700 |    23,685 
+
+
 */
 
+tab rel_start_yr, m // okay none missing, so don't need to figure out who has more info on partnership
 
-// restrict to marriages started after 1990 bc that is when I have data for family measures
-unique unique_id
-unique unique_id if rel_start_yr>=1990 & rel_start_yr!=.
-keep if rel_start_yr>=1990 & rel_start_yr!=.
+sort FAMILY_INTERVIEW_NUM_ survey_yr unique_id partner_id
+browse unique_id partner_id survey_yr main_fam_id FAMILY_INTERVIEW_NUM_ // wait, does it matter if one partner kept sometimes and the other other times? or should be fine because sort order?
 
+*then rank the remaining members
+bysort survey_yr main_fam_id FAMILY_INTERVIEW_NUM_ : egen per_id = rank(unique_id)
+tab per_id, m // 1s / odd #s should approximately total above - there are only 1s and 2s okay. feels liek more matches here. possibly bc i know they already had a birth together?
+
+sort FAMILY_INTERVIEW_NUM_ survey_yr unique_id partner_id
+browse unique_id partner_id per_id survey_yr main_fam_id FAMILY_INTERVIEW_NUM_ 
+
+sort unique_id partner_id survey_yr
+browse unique_id partner_id per_id survey_yr main_fam_id FAMILY_INTERVIEW_NUM_ 
+
+keep if per_id==1
+
+tab SEX marital_status_updated, m // check - should be half of above. this is much closer
+
+save "$created_data/PSID_second_birth_sample.dta", replace
 
 ********************************************************************************
 **# ALL BELOW HERE NEEDS TO BE REVISITED
