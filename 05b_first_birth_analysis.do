@@ -12,8 +12,8 @@
 ********************************************************************************
 * This files takes the first birth sample and runs analysis
 
-// needs to be replaced with whatever I create in 5a.
-use "$created_data/PSID_first_birth_sample.dta", clear
+// created in file 5a
+use "$created_data/PSID_first_birth_sample_rec.dta", clear
 
 tab relationship_duration joint_first_birth, col m
 

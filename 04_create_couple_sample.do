@@ -750,6 +750,7 @@ tab joint_first_birth_yr joint_first_birth if any_births_pre_rel==0, m // so all
 
 gen first_birth_sample_flag=0
 replace first_birth_sample_flag = 1 if any_births_pre_rel==0 // remove if either partner had birth pre-maritally. is this the primary restriction? basically, had to enter relationship without kids?
+replace first_birth_sample_flag = 0 if num_births_pre_ref!=0 | num_births_pre_sp!=0 // this is causing problems if first birth before the coresidential relationship started
 replace first_birth_sample_flag = 0 if joint_first_birth_yr==9998 // no first birth year but HAD a joint first birth?
 replace first_birth_sample_flag = 0 if joint_first_birth_yr< 1990 // remove if before 1990 (bc I don't have data) - prob will need to remove even more if I want to lag, but let's start here
 replace first_birth_sample_flag = 0 if survey_yr > joint_first_birth_yr // censored observations - years AFTER first birth (if had one)
@@ -845,10 +846,10 @@ tab SEX marital_status_updated, m
     SEX OF |                      marital_status_updated
 INDIVIDUAL | Married (  Partnered     Single   Divorced  Separated          . |     Total
 -----------+------------------------------------------------------------------+----------
-      Male |    11,701      2,679         41          4          4      2,210 |    16,639 
-    Female |    12,118      2,773         58          8         15      2,420 |    17,392 
+      Male |    11,066      2,592         41          4          4      2,142 |    15,849 
+    Female |    11,191      2,652         57          8         15      2,324 |    16,247 
 -----------+------------------------------------------------------------------+----------
-     Total |    23,819      5,452         99         12         19      4,630 |    34,031 
+     Total |    22,257      5,244         98         12         19      4,466 |    32,096 
 
 */
 
