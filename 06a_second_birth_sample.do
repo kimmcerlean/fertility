@@ -337,4 +337,16 @@ replace hours_housework_t1=5 if hours_housework_t1==. & hh_hours_type_t1!=. & ho
 
 label values hours_housework_t1 hours_housework 
 
+// get lagged structural measure
+rename structural_familism structural_familism_t
+
+gen year_t1 = survey_yr - 1
+merge m:1 year_t1 state_fips using "$states/structural_familism.dta", keepusing(structural_familism)
+rename structural_familism structural_familism_t1
+drop if _merge==2
+drop _merge
+
+sort unique_id partner_id survey_yr
+browse unique_id partner_id survey_yr state_fips structural_fam*
+
 save "$created_data/PSID_second_birth_sample_rec.dta", replace

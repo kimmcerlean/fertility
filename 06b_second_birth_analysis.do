@@ -12,76 +12,102 @@
 ********************************************************************************
 * This files takes the second birth sample and runs analysis
 
-// needs to be updated with whatever I create in step 6a
-use "$created_data/PSID_second_birth_sample.dta", clear
+// created in step 6a
+use "$created_data/PSID_second_birth_sample_rec.dta", clear
 
-// what should duration be?
-
-browse unique_id partner_id survey_yr rel_start_yr at_risk num_births_ref_together num_births_sp_together birth_transition_year cah_child_birth_yr1_ref cah_child_birth_yr2_ref cah_child_birth_yr3_ref cah_child_birth_yr1_sp cah_child_birth_yr2_sp cah_child_birth_yr3_sp relationship_duration
+tab relationship_duration had_second_birth, row m 
+tab time_since_first_birth had_second_birth, row m 
 
 ********************************************************************************
 * Playing around for now
 ********************************************************************************
-logistic second_birth i.relationship_duration i.educ_wife i.marital_status_updated
-margins educ_wife
+logistic had_second_birth i.time_since_first_birth i.educ_woman // i.marital_status_updated
+margins educ_woman
 
-logistic second_birth i.AGE_SPOUSE_ i.educ_wife i.marital_status_updated
-margins educ_wife
+logistic had_second_birth i.age_woman i.educ_woman  // i.marital_status_updated
+margins educ_woman
 
-tab hh_earn_type second_birth, row m
-logistic second_birth i.AGE_SPOUSE_ i.marital_status_updated i.hh_earn_type
-margins hh_earn_type
+logistic had_second_birth i.educ_woman 
+margins educ_woman
 
-tab hh_earn_type_lag second_birth, row m
-logistic second_birth i.AGE_SPOUSE_ i.marital_status_updated i.hh_earn_type_lag
-margins hh_earn_type_lag
+// which paid labor AND which measure of time?
+tab hh_earn_type had_second_birth, row m
+tab hh_earn_type_t1 had_second_birth, row m
+tab hh_hours_type had_second_birth, row m
+tab hh_hours_type_t1 had_second_birth, row m
+tab housework_bkt had_second_birth, row m
+tab housework_bkt_t1 had_second_birth, row m
 
-logistic second_birth i.AGE_SPOUSE_ i.marital_status_updated i.housework_bkt
-margins housework_bkt
+logistic had_second_birth i.time_since_first_birth i.hh_earn_type_t1
+margins hh_earn_type_t1
 
-logistic second_birth i.AGE_SPOUSE_ i.marital_status_updated i.housework_bkt_lag
-margins housework_bkt_lag
+logistic had_second_birth i.age_woman i.hh_earn_type_t1
+margins hh_earn_type_t1
 
-logistic second_birth i.AGE_SPOUSE_ i.marital_status_updated structural_familism if state_fips!=11
-margins, at(structural_familism=(-5(1)10))
+logistic had_second_birth i.time_since_first_birth i.hh_hours_type_t1
+margins hh_hours_type_t1
+
+logistic had_second_birth i.age_woman i.hh_hours_type_t1
+margins hh_hours_type_t1
+
+logistic had_second_birth i.time_since_first_birth i.age_woman i.hh_hours_type_t1
+margins hh_hours_type_t1
+
+logistic had_second_birth i.time_since_first_birth i.age_woman  ib2.couple_work_t1
+margins couple_work_t1
+
+logistic had_second_birth i.time_since_first_birth i.age_woman  i.housework_bkt_t1
+margins housework_bkt_t1
+
+logistic had_second_birth i.time_since_first_birth i.age_woman  i.hours_housework_t1
+margins hours_housework_t1
+
+logistic had_second_birth i.time_since_first_birth i.age_woman structural_familism_t1 if state_fips!=11 // not sig
 marginsplot
 
-// Paid labor
-* Structural familism interaction
-logistic second_birth i.AGE_SPOUSE_ i.marital_status_updated c.structural_familism i.hh_earn_type c.structural_familism#i.hh_earn_type if hh_earn_type < 4
-sum structural_familism, detail
-margins, dydx(hh_earn_type) at(structural_familism=(`r(p5)' `r(p25)' `r(p50)' `r(p75)' `r(p95)'))
-marginsplot, xtitle("Structural Support for Working Families: percentiles") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Male BW" 2 "Female BW") rows(1)) xlabel(-3.12 "5th" -0.64 "25th" 1.27 "50th" 3.57 "75th" 12.48 "95th") yscale(range(-.1 .1)) ylabel(-.1(.05).1, angle(0)) plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12"))
+// adding controls
+local controls "i.age_woman i.age_man i.religion_woman i.religion_man i.educ_man i.educ_woman i.raceth_fixed_man i.raceth_fixed_woman relationship_duration"
 
-* Structural familism interaction - lag (worried about sample size here)
-logistic second_birth i.AGE_SPOUSE_ i.marital_status_updated c.structural_familism i.hh_earn_type_lag c.structural_familism#i.hh_earn_type_lag if hh_earn_type_lag < 4
-sum structural_familism, detail
-margins, dydx(hh_earn_type_lag) at(structural_familism=(`r(p5)' `r(p25)' `r(p50)' `r(p75)' `r(p95)'))
-marginsplot, xtitle("Structural Support for Working Families: percentiles") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Male BW" 2 "Female BW") rows(1)) xlabel(-3.12 "5th" -0.64 "25th" 1.27 "50th" 3.57 "75th" 12.48 "95th") yscale(range(-.1 .1)) ylabel(-.1(.05).1, angle(0)) plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12"))
+logistic had_second_birth i.time_since_first_birth i.hh_hours_type_t1 `controls'
+margins hh_hours_type_t1
+
+logistic had_second_birth i.time_since_first_birth i.hh_earn_type_t1 `controls'
+margins hh_earn_type_t1
+
+logistic had_second_birth i.time_since_first_birth structural_familism_t1 `controls' if state_fips!=11
+margins, at(structural_familism_t1=(-5(1)10))
+marginsplot
+
+********************************************************************************
+* Key interactions with structural support measure
+********************************************************************************
+local controls "i.age_woman i.age_man i.religion_woman i.religion_man i.educ_man i.educ_woman i.raceth_fixed_man i.raceth_fixed_woman relationship_duration"
+
+// Paid labor
+* interaction with hours
+logistic had_second_birth i.time_since_first_birth c.structural_familism_t1 i.hh_hours_type_t1 c.structural_familism_t1#i.hh_hours_type_t1 `controls' if hh_hours_type_t1 < 4 & state_fips!=11
+sum structural_familism_t1, detail
+margins, dydx(hh_hours_type_t1) at(structural_familism_t1=(`r(min)'(1)`r(max)'))
+marginsplot, xtitle("Structural Support for Working Families: percentiles") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: Second Birth") title("") legend(position(6) ring(3) order(1 "Male BW" 2 "Female BW") rows(1)) yscale(range(-.1 .1)) ylabel(-.1(.05).1, angle(0)) plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12")) // xlabel(-3.12 "5th" -0.64 "25th" 1.27 "50th" 3.57 "75th" 12.48 "95th") 
+
+* interaction with earnings
+logistic had_second_birth i.time_since_first_birth c.structural_familism_t1 i.hh_earn_type_t1 c.structural_familism_t1#i.hh_earn_type_t1 `controls' if hh_earn_type_t1 < 4 & state_fips!=11
+sum structural_familism_t1, detail
+margins, dydx(hh_earn_type_t1) at(structural_familism_t1=(`r(min)'(1)`r(max)'))
+marginsplot, xtitle("Structural Support for Working Families: percentiles") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: Second Birth") title("") legend(position(6) ring(3) order(1 "Male BW" 2 "Female BW") rows(1)) yscale(range(-.1 .1)) ylabel(-.1(.05).1, angle(0)) plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12")) // xlabel(-3.12 "5th" -0.64 "25th" 1.27 "50th" 3.57 "75th" 12.48 "95th") 
 
 // Unpaid labor
-* Structural familism interaction
-logistic second_birth i.AGE_SPOUSE_ i.marital_status_updated c.structural_familism i.housework_bkt c.structural_familism#i.housework_bkt if housework_bkt < 4
-sum structural_familism, detail
-margins, dydx(housework_bkt) at(structural_familism=(`r(p5)' `r(p25)' `r(p50)' `r(p75)' `r(p95)'))
-marginsplot, xtitle("Structural Support for Working Families: percentiles") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Female HW" 2 "Male HW") rows(1)) xlabel(-3.12 "5th" -0.64 "25th" 1.27 "50th" 3.57 "75th" 12.48 "95th") yscale(range(-.1 .1)) ylabel(-.1(.05).1, angle(0)) plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12"))
+local controls "i.age_woman i.age_man i.religion_woman i.religion_man i.educ_man i.educ_woman i.raceth_fixed_man i.raceth_fixed_woman relationship_duration"
 
-* Structural familism interaction - lag (worried about sample size here)
-logistic second_birth i.AGE_SPOUSE_ i.marital_status_updated c.structural_familism i.housework_bkt_lag c.structural_familism#i.housework_bkt_lag if housework_bkt_lag < 4
-sum structural_familism, detail
-margins, dydx(housework_bkt_lag) at(structural_familism=(`r(p5)' `r(p25)' `r(p50)' `r(p75)' `r(p95)'))
-marginsplot, xtitle("Structural Support for Working Families: percentiles") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Female HW" 2 "Male HW") rows(1)) xlabel(-3.12 "5th" -0.64 "25th" 1.27 "50th" 3.57 "75th" 12.48 "95th") yscale(range(-.1 .1)) ylabel(-.1(.05).1, angle(0)) plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12"))
-
+logistic had_second_birth i.time_since_first_birth c.structural_familism_t1 i.housework_bkt_t1 c.structural_familism_t1#i.housework_bkt_t1 `controls' if housework_bkt_t1 < 4 & state_fips!=11
+sum structural_familism_t1, detail
+margins, dydx(housework_bkt_t1) at(structural_familism_t1=(`r(min)'(1)`r(max)'))
+marginsplot, xtitle("Structural Support for Working Families: percentiles") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: Second Birth") title("") legend(position(6) ring(3) order(1 "Female HW" 2 "Male HW") rows(1)) // yscale(range(-.1 .1)) ylabel(-.1(.05).1, angle(0)) plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12")) // xlabel(-3.12 "5th" -0.64 "25th" 1.27 "50th" 3.57 "75th" 12.48 "95th") 
 
 // Both
-* Structural familism interaction
-logistic second_birth i.AGE_SPOUSE_ i.marital_status_updated c.structural_familism i.earn_housework c.structural_familism#i.earn_housework 
-sum structural_familism, detail
-margins, dydx(earn_housework) at(structural_familism=(`r(p5)' `r(p25)' `r(p50)' `r(p75)' `r(p95)'))
-marginsplot, xtitle("Structural Support for Working Families: percentiles") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Second Shift" 2 "Traditional" 3 "Counter" 4 "Other") rows(1)) xlabel(-3.12 "5th" -0.64 "25th" 1.27 "50th" 3.57 "75th" 12.48 "95th") yscale(range(-.1 .1)) ylabel(-.1(.05).1, angle(0)) plot3opts(lcolor("gs6") mcolor("gs6")) ci3opts(color("gs6")) plot4opts(lcolor("gs12") mcolor("gs12")) ci4opts(color("gs12"))
+local controls "i.age_woman i.age_man i.religion_woman i.religion_man i.educ_man i.educ_woman i.raceth_fixed_man i.raceth_fixed_woman relationship_duration"
 
-* Structural familism interaction - lag
-logistic second_birth i.AGE_SPOUSE_ i.marital_status_updated c.structural_familism i.earn_housework_lag c.structural_familism#i.earn_housework_lag 
-sum structural_familism, detail
-margins, dydx(earn_housework_lag) at(structural_familism=(`r(p5)' `r(p25)' `r(p50)' `r(p75)' `r(p95)'))
-marginsplot, xtitle("Structural Support for Working Families: percentiles") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Second Shift" 2 "Traditional" 3 "Counter" 4 "Other") rows(1)) xlabel(-3.12 "5th" -0.64 "25th" 1.27 "50th" 3.57 "75th" 12.48 "95th") yscale(range(-.1 .1)) ylabel(-.1(.05).1, angle(0)) plot3opts(lcolor("gs6") mcolor("gs6")) ci3opts(color("gs6")) plot4opts(lcolor("gs12") mcolor("gs12")) ci4opts(color("gs12"))
+logistic had_second_birth i.time_since_first_birth c.structural_familism_t1 i.hours_housework_t1 c.structural_familism_t1#i.hours_housework_t1 `controls' if state_fips!=11
+sum structural_familism_t1, detail
+margins, dydx(hours_housework_t1) at(structural_familism_t1=(`r(min)'(1)`r(max)'))
+marginsplot, xtitle("Structural Support for Working Families: percentiles") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: Second Birth") title("") legend(position(6) ring(3) order(1 "Second Shift" 2 "Traditional" 3 "Counter" 4 "Other") rows(1)) // yscale(range(-.1 .1)) ylabel(-.1(.05).1, angle(0)) plot3opts(lcolor("gs6") mcolor("gs6")) ci3opts(color("gs6")) plot4opts(lcolor("gs12") mcolor("gs12")) ci4opts(color("gs12"))
