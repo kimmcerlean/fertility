@@ -81,6 +81,9 @@ keep if (age_man>=20 & age_man<=60) & (age_woman>=20 & age_woman<50) // Comolli 
 unique unique_id partner_id
 unique unique_id partner_id if joint_second_birth_opt2==1
 
+unique unique_id partner_id if rel_start_yr >= 2005 // focus on post-recession period?
+unique unique_id partner_id if joint_second_birth_opt2==1 & rel_start_yr >= 2005 // focus on post-recession period?
+
 ********************************************************************************
 **# Create gendered variables and couple-level IVs
 ********************************************************************************
