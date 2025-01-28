@@ -1077,6 +1077,13 @@ forvalues y=1969/2021{
 
 browse weekly_hrs_t_focal1996 weekly_hrs_t_focal1997 weekly_hrs_t1_focal1996 weekly_hrs_t1_focal1997 weekly_hrs_t1_focal1998
 
+// let's do a housework lag here while I have more data so I can use later
+forvalues y=1968/2020{
+	local x=`y'+1
+	capture gen housework_t1_focal`x' = housework_focal`y'
+}
+
+
 // before reshaping, get first observed educational
 egen first_educ_focal=rowfirst(educ_focal*)
 browse first_educ_focal educ_focal*
@@ -1099,7 +1106,7 @@ COR_IMM_WT_ LONG_WT_ CROSS_SECTION_WT_ CORE_WEIGHT_ CROSS_SECTION_FAM_WT_ FOLLOW
 weekly_hrs_t1_focal earnings_t1_focal employed_t1_earn_focal any_psid_births_t1_focal any_psid_births_t1_hh ///
 housework_focal childcare_focal adultcare_focal employed_focal educ_focal college_focal age_focal raceth_focal ///
 religion_focal religion_change weekly_hrs_t2_focal earnings_t2_focal employed_t2_focal has_hours_t1 has_earnings_t1 ///
-employed_t1_hrs_focal has_hours_t2 has_earnings_t2 new_in_hh ///
+employed_t1_hrs_focal has_hours_t2 has_earnings_t2 new_in_hh housework_t1_focal ///
 weekly_hrs_t_focal TOTAL_INCOME_T_FAMILY earnings_t_focal any_psid_births_t_focal any_psid_births_t_hh ///
 , i(unique_id first_survey_yr last_survey_yr) j(survey_yr)
 
@@ -1122,7 +1129,7 @@ browse unique_id survey_yr in_sample educ_focal first_educ_focal max_educ_focal
 // to use for coupled samples, add partner_id as well as spousal versions of the focal variables
 gen partner_id = unique_id
 
-foreach var in weekly_hrs_t1 earnings_t1 employed_t1_earn any_psid_births_t1 housework childcare adultcare employed educ college age raceth religion weekly_hrs_t2 earnings_t2 employed_t2 employed_t1_hrs max_educ raceth_fixed last_race first_educ weekly_hrs_t earnings_t any_psid_births_t{
+foreach var in weekly_hrs_t1 earnings_t1 employed_t1_earn any_psid_births_t1 housework housework_t1 childcare adultcare employed educ college age raceth religion weekly_hrs_t2 earnings_t2 employed_t2 employed_t1_hrs max_educ raceth_fixed last_race first_educ weekly_hrs_t earnings_t any_psid_births_t{
 	gen `var'_sp = `var'_focal
 }
 

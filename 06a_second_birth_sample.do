@@ -84,7 +84,7 @@ unique unique_id partner_id if joint_second_birth_opt2==1
 ********************************************************************************
 **# Create gendered variables and couple-level IVs
 ********************************************************************************
-foreach var in educ raceth raceth_fixed religion weekly_hrs_t earnings_t housework weekly_hrs_t1 earnings_t1{
+foreach var in educ raceth raceth_fixed religion weekly_hrs_t earnings_t housework housework_t1 weekly_hrs_t1 earnings_t1{
 	gen `var'_man = `var'_focal if SEX==1
 	replace `var'_man = `var'_sp if SEX==2
 	
@@ -304,9 +304,23 @@ label values housework_bkt housework_bkt
 tab housework_bkt, m
 tab survey_yr housework_bkt, m
 
+/*
 sort unique_id partner_id survey_yr
 gen housework_bkt_t1 = .
 replace housework_bkt_t1 = housework_bkt[_n-1] if unique_id==unique_id[_n-1] & partner_id==partner_id[_n-1] & wave==wave[_n-1]+1 // I could probably get a lag from the individual level data? so the first year won't be missing by defaul
+*/
+
+egen couple_housework_t1 = rowtotal (housework_t1_man housework_t1_woman)
+
+gen wife_housework_pct_t1 = housework_t1_woman / couple_housework_t1
+
+gen housework_bkt_t1=.
+replace housework_bkt_t1=1 if wife_housework_pct_t1 >=.4000 & wife_housework_pct_t1 <=.6000
+replace housework_bkt_t1=2 if wife_housework_pct_t1 >.6000 & wife_housework_pct_t1!=.
+replace housework_bkt_t1=3 if wife_housework_pct_t1 <.4000
+replace housework_bkt_t1=4 if housework_t1_woman==0 & housework_t1_man==0
+
+label values housework_bkt_t1 housework_bkt
 
 tab survey_yr housework_bkt_t1, m
 label values housework_bkt_t1 housework_bkt

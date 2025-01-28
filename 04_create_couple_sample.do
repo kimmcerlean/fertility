@@ -19,6 +19,9 @@
 ********************************************************************************
 use "$created_data\PSID_individ_allyears.dta", clear
 
+drop partner_id // need to clean up some things I don't need in this file for now
+drop *_sp
+
 egen wave = group(survey_yr) // this will make years consecutive, easier for later
 
 tab in_sample,m 
@@ -926,7 +929,7 @@ save "$created_data/PSID_second_birth_sample.dta", replace
 ********************************************************************************
 **# ALL BELOW HERE NEEDS TO BE REVISITED
 ********************************************************************************
-
+/*
 ** This is trying to increment births DURING the survey period
 // okay NEW problem, what if birth happens in an off year when the survey is biennial? right now, acting like no birth, but that is not right... GAH. add one to all of those? (basically if it's after 1997 and even year? so if birth is in 1998, let's record in 1999. OR should I record in 1997 because then we can say that is like "conception" so might not even need to lag the HH indicators?) okay also think about this gah. first let's create a flag to understand how many births, in general, are in off years
 
@@ -1034,4 +1037,4 @@ tab first_birth_use_ref first_birth_use_sp, m
 bysort unique_id partner_id (joint_first_birth): egen first_birth_together=max(joint_first_birth) // so flag if they had first birth together? might make sample stuff easier?
 sort unique_id survey_yr
 browse unique_id partner_id survey_yr joint_first_birth first_birth_together first_birth_use_ref first_birth_use_sp // so this helps 
-
+*/
