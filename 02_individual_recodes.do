@@ -1056,7 +1056,7 @@ forvalues y=1998(2)2020{
 
 
 // same for marital pairs and a few other variables
-foreach var in MARITAL_PAIRS_ MARST_DEFACTO_HEAD_ MARST_LEGAL_HEAD_ relationship in_sample partnered STATE_{
+foreach var in MARITAL_PAIRS_ MARST_DEFACTO_HEAD_ MARST_LEGAL_HEAD_ RELATION_ relationship in_sample partnered STATE_ religion_focal{
 	forvalues y=1998(2)2020{
 		local z=`y'+1
 		local x=`y'-1
@@ -1077,12 +1077,42 @@ forvalues y=1969/2021{
 
 browse weekly_hrs_t_focal1996 weekly_hrs_t_focal1997 weekly_hrs_t1_focal1996 weekly_hrs_t1_focal1997 weekly_hrs_t1_focal1998
 
-// let's do a housework lag here while I have more data so I can use later
+// let's do a housework lag here while I have more data so I can use later. I guess also do the same for religion and education?
 forvalues y=1968/2020{
 	local x=`y'+1
 	capture gen housework_t1_focal`x' = housework_focal`y'
+	capture gen educ_t1_focal`x' = educ_focal`y'
+	capture gen religion_t1_focal`x' = religion_focal`y'
 }
 
+// want to get t2 versions of variables as well
+browse unique_id weekly_hrs_t_focal1995 weekly_hrs_t_focal1996 weekly_hrs_t_focal1997 weekly_hrs_t_focal1998 weekly_hrs_t1_focal1996 weekly_hrs_t1_focal1997 weekly_hrs_t1_focal1998 weekly_hrs_t1_focal1999 weekly_hrs_t2_focal1996 weekly_hrs_t2_focal1997 weekly_hrs_t2_focal1999
+browse unique_id weekly_hrs_t2_focal* earnings_t2_focal*
+* for income / hours - the t2 vars exist for the survey years, but are missing outside of 1999-2021 years
+* but then, need to be created for the off years
+* for HW, all need to be created
+
+forvalues y=1968/1996{
+	local x=`y'+1
+	replace weekly_hrs_t2_focal`x' = weekly_hrs_t1_focal`y' // so, 1997 gets 1996 values - both refer to 1995
+	replace earnings_t2_focal`x' = earnings_t1_focal`y' // so, 1997 gets 1996 values - both refer to 1995
+}
+
+forvalues y=1998(2)2020{
+	local x=`y'-1
+	gen weekly_hrs_t2_focal`y' = weekly_hrs_t1_focal`x'
+	gen earnings_t2_focal`y' = earnings_t1_focal`x'
+}
+
+forvalues y=1968/2019{
+	local z=`y'+2
+	capture gen housework_t2_focal`z' = housework_focal`y'
+	capture gen educ_t2_focal`z' = educ_focal`y'
+	capture gen religion_t2_focal`z' = religion_focal`y'
+}
+
+browse unique_id weekly_hrs_t_focal1996 weekly_hrs_t_focal1997 weekly_hrs_t1_focal1997 weekly_hrs_t1_focal1998 weekly_hrs_t2_focal1998
+browse unique_id housework_focal1983 housework_focal1984 housework_t2_focal1985 housework_t2_focal1986
 
 // before reshaping, get first observed educational
 egen first_educ_focal=rowfirst(educ_focal*)
@@ -1106,11 +1136,12 @@ COR_IMM_WT_ LONG_WT_ CROSS_SECTION_WT_ CORE_WEIGHT_ CROSS_SECTION_FAM_WT_ FOLLOW
 weekly_hrs_t1_focal earnings_t1_focal employed_t1_earn_focal any_psid_births_t1_focal any_psid_births_t1_hh ///
 housework_focal childcare_focal adultcare_focal employed_focal educ_focal college_focal age_focal raceth_focal ///
 religion_focal religion_change weekly_hrs_t2_focal earnings_t2_focal employed_t2_focal has_hours_t1 has_earnings_t1 ///
-employed_t1_hrs_focal has_hours_t2 has_earnings_t2 new_in_hh housework_t1_focal ///
+employed_t1_hrs_focal has_hours_t2 has_earnings_t2 new_in_hh housework_t1_focal housework_t2_focal ///
+educ_t1_focal educ_t2_focal religion_t1_focal religion_t2_focal ///
 weekly_hrs_t_focal TOTAL_INCOME_T_FAMILY earnings_t_focal any_psid_births_t_focal any_psid_births_t_hh ///
 , i(unique_id first_survey_yr last_survey_yr) j(survey_yr)
 
-browse unique_id survey_yr relationship in_sample weekly_hrs_t_focal weekly_hrs_t1_focal weekly_hrs_t2_focal housework_focal
+browse unique_id survey_yr relationship in_sample weekly_hrs_t_focal weekly_hrs_t1_focal weekly_hrs_t2_focal housework_focal housework_t1_focal
 
 // need to fill in the fixed variables for the missing rows - this might not be necessary since these were all fixed? Let's do just in case. oh yes, this was to make rectangular in other code, but I don't need to do that here
 foreach var in SEX first_survey_yr last_survey_yr birth_yr sample_type stratum cluster main_fam_id main_per_id SEX IN_UNIT SAMPLE_STATUS_TYPE PERMANENT_ATTRITION ANY_ATTRITION SAMPLE YR_NONRESPONSE_RECENT YR_NONRESPONSE_FIRST NUM_BIRTHS FIRST_BIRTH_YR MARRIAGE_UPDATE NUM_MARRIED FIRST_MARRIAGE_YR_START FIRST_MARRIAGE_STATUS FIRST_MARRIAGE_YR_END FIRST_SEPARATE_YR RECENT_MARRIAGE_YR_START RECENT_MARRIAGE_STATUS RECENT_MARRIAGE_YR_END RECENT_SEPARATE_YR MARITAL_STATUS has_psid_gene permanent_attrit birth_yr max_educ_focal raceth_fixed_focal last_race_focal first_educ_focal{
@@ -1129,7 +1160,7 @@ browse unique_id survey_yr in_sample educ_focal first_educ_focal max_educ_focal
 // to use for coupled samples, add partner_id as well as spousal versions of the focal variables
 gen partner_id = unique_id
 
-foreach var in weekly_hrs_t1 earnings_t1 employed_t1_earn any_psid_births_t1 housework housework_t1 childcare adultcare employed educ college age raceth religion weekly_hrs_t2 earnings_t2 employed_t2 employed_t1_hrs max_educ raceth_fixed last_race first_educ weekly_hrs_t earnings_t any_psid_births_t{
+foreach var in weekly_hrs_t1 earnings_t1 employed_t1_earn any_psid_births_t1 housework housework_t1 housework_t2 childcare adultcare employed educ college age raceth religion weekly_hrs_t2 earnings_t2 employed_t2 employed_t1_hrs max_educ raceth_fixed last_race first_educ weekly_hrs_t earnings_t any_psid_births_t educ_t1 educ_t2 religion_t1 religion_t2{
 	gen `var'_sp = `var'_focal
 }
 

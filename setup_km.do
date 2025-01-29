@@ -49,3 +49,5 @@ global logdir "$homedir/Research Projects/Policy and Fertility/Stata/logs"
 
 * temporary data files
 global temp "$homedir/Research Projects/Policy and Fertility/Stata/temp data"
+
+set maxvar 10000
