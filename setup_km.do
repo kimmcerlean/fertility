@@ -26,6 +26,8 @@ global logdir "$homedir/Research Projects/Policy and Fertility/Stata/logs"
 * temporary data files (they get deleted without a second thought)
 global temp "$homedir/Research Projects/Policy and Fertility/Stata/temp data"
 
+set maxvar 10000
+
 **********************************************************************************
 * Stats server
 **********************************************************************************
