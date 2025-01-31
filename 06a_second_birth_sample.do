@@ -670,6 +670,36 @@ tab moved_states_lag, m
 browse unique_id partner_id survey_yr _mi_m state_fips state_change moved_states moved_states_lag rel_start_yr first_survey_yr
 tab state_change moved_states_lag, m
 
+* Figure out if I can fill in type of relationship (married v. cohab)
+sort _mi_m unique_id partner_id survey_yr
+tab marital_status_updated, m
+tab RELATION_ marital_status_updated, m
+tab RELATION_, m
+tab RELATION_sp, m
+browse unique_id partner_id survey_yr relationship_est in_sample marital_status_updated RELATION_ RELATION_sp mh_yr_married1 mh_yr_married2 mh_yr_married3 coh1_start coh2_start coh3_start rel1_start rel2_start rel3_start
+
+replace marital_status_updated=1 if inlist(marital_status_updated,3,5,6,.) & marital_status_updated[_n-1]==1 & unique_id==unique_id[_n-1] & partner_id==partner_id[_n-1] & wave==wave[_n-1]+1 // last year in survey. if year above was married, then def have to be married
+replace marital_status_updated=1 if inlist(marital_status_updated,3,5,6,.) & (RELATION_==20 | RELATION_sp==20)
+replace marital_status_updated=2 if inlist(marital_status_updated,3,5,6,.) & (RELATION_==22 | RELATION_sp==22)
+replace marital_status_updated=marital_status_updated[_n+1] if inlist(marital_status_updated,3,5,6,.) & unique_id==unique_id[_n+1] & partner_id==partner_id[_n+1] & wave==wave[_n+1]-1 // off year and first year - since have no other information, just assume it is same status as first observed year
+
+forvalues m=1/13{
+	capture replace mh_yr_end`m'=. if mh_yr_end`m'==9998
+}
+
+forvalues m=1/13{
+	capture replace marital_status_updated=1 if inlist(marital_status_updated,3,5,6,.) & survey_yr >= mh_yr_married`m' & survey_yr <= mh_yr_end`m'
+}
+
+forvalues c=1/3{
+	capture replace marital_status_updated=2 if inlist(marital_status_updated,3,5,6,.) & survey_yr >= coh`c'_start & survey_yr <= coh`c'_end
+	capture replace marital_status_updated=2 if inlist(marital_status_updated,3,5,6,.) & survey_yr == (coh`c'_start-1)
+}
+
+browse unique_id partner_id survey_yr _mi_m marital_status_updated rel_start_yr rel_end_yr mh_yr_married1 mh_yr_end1 mh_yr_married2 mh_yr_end2 mh_yr_married3 mh_yr_end3 coh1_start coh1_end coh2_start coh2_end coh3_start rel1_start rel2_start rel3_start
+gen marital_status_use = marital_status_updated
+replace marital_status_use = 2 if marital_status_updated==. | marital_status_updated==3 |  marital_status_updated==5 // assume cohab since don't meet requirements for marriage
+
 // get lagged structural measure
 rename structural_familism structural_familism_t
 
