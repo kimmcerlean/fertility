@@ -15,7 +15,7 @@
 // created in file 5a
 use "$created_data/PSID_first_birth_sample_rec.dta", clear
 
-browse unique_id partner_id survey_yr rel_start_yr marital_status_updated relationship_duration had_first_birth joint_first_birth joint_first_birth_yr
+// browse unique_id partner_id survey_yr rel_start_yr marital_status_updated relationship_duration had_first_birth joint_first_birth joint_first_birth_yr
 
 tab relationship_duration had_first_birth, row m // should relationship duration be my discrete time indicator?
 tab age_woman had_first_birth, row m  // or age?? I guess both should be in the models?
@@ -433,6 +433,41 @@ sum structural_familism_t2, detail
 margins, dydx(hours_housework_t2_imp) at(structural_familism_t2=(`r(min)'(1)`r(max)'))
 marginsplot, xtitle("Structural Support for Working Families: percentiles") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Second Shift" 2 "Traditional" 3 "Counter" 4 "Other") rows(1)) plot3opts(lcolor("gs13") mcolor("gs13")) ci3opts(color("gs13")) plot4opts(lcolor("gs8") mcolor("gs8")) ci4opts(color("gs8"))
 
+********************************************************************************
+**# * Figures for CLIC
+* Using time t-2
+********************************************************************************
+local controls "age_woman age_woman_sq couple_age_diff i.educ_type_t2 i.couple_joint_religion_t2 i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t2_ln i.moved_states_lag"
+logistic had_first_birth i.relationship_duration i.hh_hours_type_t2 `controls' if hh_hours_type_t2 < 4
+margins, dydx(hh_hours_type_t2) level(90) post
+estimates store est1
+
+logistic had_first_birth i.relationship_duration i.hh_earn_type_t2 `controls' if hh_earn_type_t2 < 4
+margins, dydx(hh_earn_type_t2) level(90) post
+estimates store est2
+
+logistic had_first_birth i.relationship_duration i.housework_bkt_t2_imp `controls' if housework_bkt_t2_imp < 4
+margins, dydx(housework_bkt_t2_imp) level(90) post
+estimates store est3
+
+logistic had_first_birth i.relationship_duration i.hours_housework_t2_imp `controls'
+margins, dydx(hours_housework_t2_imp) level(90) post
+estimates store est4
+
+coefplot est1 est2 est3 est4,  drop(_cons) nolabel xline(0) levels(90)
+
+set scheme cleanplots
+
+coefplot (est1, offset(.20) nokey lcolor("dkgreen") mcolor("dkgreen") ciopts(color("dkgreen"))) (est2, offset(.20) nokey lcolor("teal") mcolor("teal") ciopts(color("teal"))) (est3, offset(-.20) nokey lcolor("navy") mcolor("navy") ciopts(color("navy"))) (est4, offset(-.20) nokey), drop(_cons) xline(0) levels(90) base xtitle(Average Marginal Effect Relative to Egalitarian Arrangement, size(small)) ///
+coeflabels(2.hh_hours_type_t2 = "Male Breadwinner" 3.hh_hours_type_t2 = "Female Breadwinner" 2.hh_earn_type_t2 = "Male Breadwinner" 3.hh_earn_type_t2 = "Female Breadwinner" 1.housework_bkt_t2_imp = "Dual Housework" 2.housework_bkt_t2_imp = "Female Housework" 3.housework_bkt_t2_imp = "Male Housework" 1.hours_housework_t2_imp = "Egalitarian" 2.hours_housework_t2_imp = "Her Second Shift" 3.hours_housework_t2_imp = "Traditional" 4.hours_housework_t2_imp = "Counter Traditional" 5.hours_housework_t2_imp = "All Others") ///
+ headings(1.hh_hours_type_t2= "{bf:Division of Work Hours}"   1.hh_earn_type_t2 = "{bf:Division of Earnings}"   1.housework_bkt_t2_imp = "{bf:Division of Housework}"  1.hours_housework_t2_imp = "{bf:Combined Division of Labor}")
+ // (est3, offset(-.20) label(College)) 
+ 
+local controls "age_woman age_woman_sq couple_age_diff i.educ_type_t2 i.couple_joint_religion_t2 i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t2_ln i.moved_states_lag"
+logistic had_first_birth i.relationship_duration structural_familism_t2 `controls' if state_fips!=11 
+margins, at(structural_familism_t2=(-5(1)10))
+marginsplot, ytitle(Predicted Probability of First Birth) xtitle(Structural Support for Working Families) plot1opts(lcolor("eltgreen") mcolor("eltgreen")) ci1opts(color("eltgreen"))
+margins, dydx(structural_familism_t2)
 
 ********************************************************************************
 **# Descriptive statistics
