@@ -167,9 +167,6 @@ browse unique_id survey_yr marital_status_updated in_marital_history rel_start_y
 drop if rel_start_yr==. & marital_status_updated==.
 drop if rel_start_yr==. & rel_start_yr_est==. // so also seems outside of my estimated bounds
 
-// add relationship duration
-gen relationship_duration = survey_yr - rel_start_yr
-
 // attempt to create partner ids
 // this will be harder with missing relationship info. but see if there is another way to fill it out based on the rel no variables I created above. also, what do I do about others?
 tab relationship, m
@@ -259,6 +256,9 @@ replace rel_end_all = last_couple_yr if rel_end_all==.
 
 replace partnered = 1 if survey_yr >=rel_start_all & survey_yr <=rel_end_all & rel_start_all!=. & rel_end_all!=.
 replace partnered = 0 if partnered==.
+
+// add relationship duration
+gen relationship_duration = survey_yr - rel_start_all
 
 ********************************************************************************
 **# Now append birth history / figure out births
@@ -802,21 +802,21 @@ browse unique_id partner_id survey_yr first_birth_sample_flag rel_start_all any_
 // second birth sample - basically need to decide - does it have to be a joint first birth (e.g. neither partner has any premarital births) OR any shared first birth?
 browse unique_id partner_id survey_yr rel_start_all any_births_pre_rel joint_first_birth joint_first_birth_yr shared_first_birth shared_first_birth_yr shared_second_birth shared_second_birth_yr joint_second_birth_opt2 joint_second_birth_yr
 
-gen second_birth_sample_flag_cons=. // make this conservative - no premarital births
-replace second_birth_sample_flag_cons=0 if cah_num_bio_kids_ref== 0 | cah_num_bio_kids_sp == 0 // can't have second birth if either partner has no births
-replace second_birth_sample_flag_cons=0 if any_births_pre_rel== 1  // for posterity, explicitly flag as 0 if had premarital birth
-replace second_birth_sample_flag_cons=0 if joint_first_birth==0 // also can't have second birth if no first births together
-replace second_birth_sample_flag_cons=1 if joint_first_birth==1
-replace second_birth_sample_flag_cons = 0 if survey_yr < joint_first_birth_yr // censored observations BEFORE the first birth. Want clock to start at first birth
-replace second_birth_sample_flag_cons = 0 if survey_yr > joint_second_birth_yr // censored observations - years AFTER second birth (if had one)
+gen second_birth_flag_cons=. // make this conservative - no premarital births
+replace second_birth_flag_cons=0 if cah_num_bio_kids_ref== 0 | cah_num_bio_kids_sp == 0 // can't have second birth if either partner has no births
+replace second_birth_flag_cons=0 if any_births_pre_rel== 1  // for posterity, explicitly flag as 0 if had premarital birth
+replace second_birth_flag_cons=0 if joint_first_birth==0 // also can't have second birth if no first births together
+replace second_birth_flag_cons=1 if joint_first_birth==1
+replace second_birth_flag_cons = 0 if survey_yr < joint_first_birth_yr // censored observations BEFORE the first birth. Want clock to start at first birth
+replace second_birth_flag_cons = 0 if survey_yr > joint_second_birth_yr // censored observations - years AFTER second birth (if had one)
 
-tab second_birth_sample_flag_cons, m
-tab second_birth_sample_flag_cons joint_second_birth_opt2, m
-tab second_birth_sample_flag_cons shared_second_birth, m
+tab second_birth_flag_cons, m
+tab second_birth_flag_cons joint_second_birth_opt2, m
+tab second_birth_flag_cons shared_second_birth, m
 
-unique unique_id partner_id, by(second_birth_sample_flag_cons)
-unique unique_id partner_id if second_birth_sample_flag_cons==1 & joint_second_birth_opt2==1 // this should be the right one here
-// unique unique_id partner_id if second_birth_sample_flag_cons==1 & shared_second_birth==1
+unique unique_id partner_id, by(second_birth_flag_cons)
+unique unique_id partner_id if second_birth_flag_cons==1 & joint_second_birth_opt2==1 // this should be the right one here
+// unique unique_id partner_id if second_birth_flag_cons==1 & shared_second_birth==1
 
 gen second_birth_sample_flag=. // make this less conservative - just need a shared first birth
 replace second_birth_sample_flag=0 if cah_num_bio_kids_ref== 0 | cah_num_bio_kids_sp == 0 // can't have second birth if either partner has no births
@@ -826,7 +826,7 @@ replace second_birth_sample_flag = 0 if survey_yr < shared_first_birth_yr // cen
 replace second_birth_sample_flag = 0 if survey_yr > shared_second_birth_yr // censored observations - years AFTER second birth (if had one)
 
 tab second_birth_sample_flag, m
-tab second_birth_sample_flag second_birth_sample_flag_cons, m
+tab second_birth_sample_flag second_birth_flag_cons, m
 tab second_birth_sample_flag joint_second_birth_opt2, m
 tab second_birth_sample_flag shared_second_birth, m
 
@@ -834,9 +834,9 @@ unique unique_id partner_id, by(second_birth_sample_flag)
 // unique unique_id partner_id if second_birth_sample_flag==1 & joint_second_birth_opt2==1
 unique unique_id partner_id if second_birth_sample_flag==1 & shared_second_birth==1 // this should be the right one here
 
-browse unique_id partner_id survey_yr rel_start_all second_birth_sample_flag second_birth_sample_flag_cons any_births_pre_rel joint_first_birth joint_first_birth_yr shared_first_birth shared_first_birth_yr shared_second_birth shared_second_birth_yr joint_second_birth_opt2 joint_second_birth_yr
+browse unique_id partner_id survey_yr rel_start_all second_birth_sample_flag second_birth_flag_cons any_births_pre_rel joint_first_birth joint_first_birth_yr shared_first_birth shared_first_birth_yr shared_second_birth shared_second_birth_yr joint_second_birth_opt2 joint_second_birth_yr
 
-tab first_birth_sample_flag second_birth_sample_flag_cons, m // should be subset - oh well, at a unique level, but the flags actually won't overlap bc of the censoring after birth timing
+tab first_birth_sample_flag second_birth_flag_cons, m // should be subset - oh well, at a unique level, but the flags actually won't overlap bc of the censoring after birth timing
 tab first_birth_sample_flag second_birth_sample_flag, m // won't nec be
 
 // Merge on structural family measures here first as well? ah, will state cause problems because of the off years? add that to previous file also?
@@ -915,7 +915,7 @@ save "$created_data/PSID_first_birth_sample.dta", replace
 ********************************************************************************
 use "$created_data/PSID_couple_births_shared.dta", clear
 
-keep if second_birth_sample_flag_cons==1 // starting with CONSERVATIVE sample
+keep if second_birth_flag_cons==1 // starting with CONSERVATIVE sample
 
 // now deduplicate
 tab SEX marital_status_updated, m
