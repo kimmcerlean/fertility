@@ -10,31 +10,21 @@
 ********************************************************************************
 * Description
 ********************************************************************************
+* This files imputes the individual level data (for off survey yeras primarily)
+* Then matches partner's imputed characteristics
 
+********************************************************************************
+* Final prep for imputation
+********************************************************************************
 use "$created_data/PSID_couple_births_shared.dta", clear
 
-browse unique_id partner_id survey_yr rel_start_yr relationship_duration in_sample // okay, one problem with doing here is that I haven't yet matched partner data. Do I need to do that first?
-// Unless I want to impute the individual level data? that feels crazy, especially if I won't use those people.
+inspect weekly_hrs_t_focal weekly_hrs_t1_focal weekly_hrs_t2_focal  housework_focal housework_t1_focal housework_t2_focal
+browse unique_id partner_id survey_yr rel_start_yr relationship_duration in_sample weekly_hrs_t_focal weekly_hrs_t1_focal weekly_hrs_t2_focal  housework_focal housework_t1_focal housework_t2_focal
+// okay, one problem with doing here is that I haven't yet matched partner data. Do I need to do that first?
 
-// so let's merge partner characteristics
-merge m:1 partner_id survey_yr using "$created_data\PSID_individ_allyears.dta", keepusing(*_sp) // created step 2
-	// have to do m:1 bc of missing partner ids; it's not a unique list of partners
-drop if _merge==2
-tab _merge
-inspect partner_id if _merge==1 // yes, unmatched are missing pid - it's about 15% of uniques; is this too many?
-inspect partner_id if _merge==3
-tabstat partner_id, by(_merge)
-unique unique_id, by(_merge)
-
-drop _merge
-
-replace age_sp = survey_yr - birth_yr_sp if age_sp==. & birth_yr_sp!=9999
-replace age_sp = . if age_sp < 0
-
-browse unique_id partner_id survey_yr SEX SEX_sp weekly_hrs_t_focal weekly_hrs_t_sp housework_focal housework_sp age_focal age_sp
-
-// add in indicator of birth in year (potentially to use in imputation) - but remember KIM this is not yet restricted sample (though I do have those flags)
-browse unique_id partner_id survey_yr SEX SEX_sp shared_birth1_refyr shared_birth2_refyr shared_birth3_refyr shared_birth1_spyr shared_birth2_spyr shared_birth3_spyr
+// add in indicator of birth in year (to use in imputation) - but remember KIM this is not yet restricted sample (though I do have those flags)
+sort unique_id partner_id survey_yr
+browse unique_id partner_id survey_yr SEX shared_birth1_refyr shared_birth2_refyr shared_birth3_refyr shared_birth1_spyr shared_birth2_spyr shared_birth3_spyr
 
 gen shared_birth_in_yr=0
 forvalues b=1/9{
@@ -43,29 +33,34 @@ forvalues b=1/9{
 }
 
 tab shared_birth_in_yr, m
-browse unique_id partner_id survey_yr rel_start_yr SEX SEX_sp shared_birth_in_yr shared_birth1_refyr shared_birth2_refyr shared_birth3_refyr shared_birth1_spyr shared_birth2_spyr shared_birth3_spyr
+browse unique_id partner_id survey_yr rel_start_yr SEX shared_birth_in_yr shared_birth1_refyr shared_birth2_refyr shared_birth3_refyr shared_birth1_spyr shared_birth2_spyr shared_birth3_spyr
 
-// what variables do I want to impute? and how. I guess I should turn wide so can use lags and leads? BUT I also don't want to impute outside of the bounds of the relationship? So the data is going to be unbalanced. I don't like that if I make it wide (bc will just get missing for those years)
-// I could also just impute cross-sectionally and JUST impute housework? I guess I can impute with t-1 and t-2. but should I also use t+1, t+2?
-inspect housework_focal housework_sp
-inspect weekly_hrs_t_focal weekly_hrs_t_sp
-inspect earnings_t_focal earnings_t_sp
+// other checks
+inspect housework_focal weekly_hrs_t_focal earnings_t_focal 
 inspect housework_focal weekly_hrs_t_focal earnings_t_focal if in_sample==1 & survey_yr!=last_survey_yr // are some of these missings bc not in sample? In theory, work variables should not be missing. that doesn't explain all of it. should some of these be ZEROES and not missing? (based on employment status - but that is point in time...) should I update to 0s? but could have worked at other parts of the year.
-inspect housework_sp weekly_hrs_t_sp earnings_t_sp if in_sample_sp==1
 
 browse unique_id survey_yr first_survey_yr last_survey_yr age_focal in_sample housework_focal employed_focal weekly_hrs_t_focal earnings_t_focal weekly_hrs_t1_focal earnings_t1_focal // so some are 0s. Some appear to be off years that I couldn't get data for (because corresponds to off year where they then have no more data following) OH and a bunch are 2021 because all of the data is t-1, so no data available yet. okay, yes ignoring 2021 / last survey yr helps reduce the missing
 
-drop if survey_yr > last_survey_yr
 tabstat weekly_hrs_t_focal earnings_t_focal, by(employed_focal)
 inspect weekly_hrs_t_focal earnings_t_focal if employed_focal==0
 inspect weekly_hrs_t_focal earnings_t_focal if employed_focal==1
 
+********************************************************************************
+* Reshape wide for imputation
+********************************************************************************
+// This will now create variables outside of the bounds of the relationship, but I will drop later once imputed
+
+local fixed ""
+local timevary ""
+
+keep unique_id partner_id survey_yr `fixed' `timevary'
+
+reshape wide `timevary', i(unique_id partner_id) j(survey_yr)
+
+
 // clean up data
 drop if raceth_fixed_focal==. // for now, just so this is actually complete
 drop if age_focal==. // so complete
-drop if partner_id==. // so only MATCHED observations for now
-drop if age_sp==.
-drop if raceth_fixed_sp==. 
 
 ********************************************************************************
 **# Imputation. going to see if I can do focal and spouse in one go
@@ -152,3 +147,25 @@ twoway (histogram earnings_t_focal if imputed==0 & earnings_t_focal >=-1000 & ea
 twoway (histogram weekly_hrs_t_sp if imputed==0 & weekly_hrs_t_sp<=100, width(2) color(blue%30)) (histogram weekly_hrs_t_sp if imputed==1 & weekly_hrs_t_sp<=100, width(2) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Weekly Employment Hours")
 twoway (histogram housework_sp if imputed==0 & housework_sp<=50, width(2) color(blue%30)) (histogram housework_sp if imputed==1 & housework_sp<=50, width(2) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Weekly Housework Hours")
 twoway (histogram earnings_t_sp if imputed==0 & earnings_t_sp >=-1000 & earnings_t_sp <=300000, width(10000) color(blue%30)) (histogram earnings_t_sp if imputed==1 & earnings_t_sp >=-1000 & earnings_t_sp <=300000, width(10000) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Annual Earnings")
+
+********************************************************************************
+**# Merge partner's imputed characteristics
+********************************************************************************
+
+merge m:1 partner_id survey_yr using "$created_data\PSID_individ_allyears.dta", keepusing(*_sp) // created step 2
+	// have to do m:1 bc of missing partner ids; it's not a unique list of partners
+drop if _merge==2
+tab _merge
+inspect partner_id if _merge==1 // yes, unmatched are missing pid - it's about 15% of uniques; is this too many?
+inspect partner_id if _merge==3
+tabstat partner_id, by(_merge)
+unique unique_id, by(_merge)
+
+drop _merge
+
+replace age_sp = survey_yr - birth_yr_sp if age_sp==. & birth_yr_sp!=9999
+replace age_sp = . if age_sp < 0
+
+// because I imputed more data than I need, need to restrict to the actual survey years of the relationship again
+// (revisit this code post imputation)
+drop if survey_yr > last_survey_yr

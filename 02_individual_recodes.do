@@ -1175,4 +1175,8 @@ foreach var in COR_IMM_WT_ X1968_PERSON_NUM_ SEQ_NUMBER_ RELATION_ MARITAL_PAIRS
 // browse unique_id partner_id weekly_hrs_t1_focal weekly_hrs_t2_focal weekly_hrs_t_focal weekly_hrs_t1_sp weekly_hrs_t2_sp weekly_hrs_t_sp
 
 save "$created_data\PSID_individ_allyears.dta", replace
-
+unique unique_id
+tab survey_yr
+// so, there are now more records here than there were in original long version. is this because I now have records again for people not in sample? THat doesn't make sense...
+// OH duh it's because i added the off years. So, there were 42 records per person. Now there are 54
+// so this file is ALL individuals, ALL years, regardless of whether or not in sample
