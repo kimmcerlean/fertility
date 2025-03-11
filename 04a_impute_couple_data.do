@@ -128,7 +128,7 @@ egen nmis_partner = rmiss(partnered*)
 tab nmis_partner, m
 
 mi set wide
-mi register imputed weekly_hrs_t_focal* weekly_hrs_t1_focal* housework_focal* housework_t1_focal* earnings_t_focal* earnings_t1_focal* TOTAL_INCOME_T_FAMILY* TOTAL_INCOME_T1_FAMILY* NUM_CHILDREN_* religion_imp_focal* // religion_t1_focal*
+mi register imputed weekly_hrs_t_focal* weekly_hrs_t1_focal* housework_focal* housework_t1_focal* earnings_t_focal* earnings_t1_focal* TOTAL_INCOME_T_FAMILY* TOTAL_INCOME_T1_FAMILY* NUM_CHILDREN_*  // religion_imp_focal* religion_t1_focal*
 mi register regular SEX birth_yr raceth_fixed_focal max_educ_focal sample_type rel_start_all FIRST_BIRTH_YR shared_birth_in_yr*_v2 partnered*
 
 #delimit ;
@@ -304,7 +304,7 @@ mi impute chained
 (pmm, knn(5) include ( NUM_CHILDREN_4 NUM_CHILDREN_5 NUM_CHILDREN_6 NUM_CHILDREN_7 NUM_CHILDREN_8 NUM_CHILDREN_9 NUM_CHILDREN_10 NUM_CHILDREN_11 NUM_CHILDREN_12 NUM_CHILDREN_13 NUM_CHILDREN_15          weekly_hrs_t1_focal14 weekly_hrs_t_focal14 housework_t1_focal14 housework_focal14 earnings_t1_focal14 earnings_t_focal14 TOTAL_INCOME_T1_FAMILY_14 TOTAL_INCOME_T_FAMILY14 i.shared_birth_in_yr14_v2 i.partnered14)) NUM_CHILDREN_14
 (pmm, knn(5) include ( NUM_CHILDREN_5 NUM_CHILDREN_6 NUM_CHILDREN_7 NUM_CHILDREN_8 NUM_CHILDREN_9 NUM_CHILDREN_10 NUM_CHILDREN_11 NUM_CHILDREN_12 NUM_CHILDREN_13 NUM_CHILDREN_14           weekly_hrs_t1_focal15 weekly_hrs_t_focal15 housework_t1_focal15 housework_focal15 earnings_t1_focal15 earnings_t_focal15 TOTAL_INCOME_T1_FAMILY_15 TOTAL_INCOME_T_FAMILY15 i.shared_birth_in_yr15_v2 i.partnered15)) NUM_CHILDREN_15
 
-/* religion t */
+/* religion t
 (pmm, knn(5) include (  i.religion_imp_focal1)) religion_imp_focal0
 (pmm, knn(5) include ( i.religion_imp_focal0 i.religion_imp_focal2)) religion_imp_focal1
 (pmm, knn(5) include ( i.religion_imp_focal1 i.religion_imp_focal3)) religion_imp_focal2
@@ -321,8 +321,9 @@ mi impute chained
 (pmm, knn(5) include ( i.religion_imp_focal12 i.religion_imp_focal14)) religion_imp_focal13
 (pmm, knn(5) include ( i.religion_imp_focal13 i.religion_imp_focal15)) religion_imp_focal14
 (pmm, knn(5) include ( i.religion_imp_focal14 )) religion_imp_focal15
+*/
 
-= birth_yr i.raceth_fixed_focal i.first_educ_focal i.sample_type rel_start_all, by(SEX) chaindots add(1) burnin(3) rseed(8675309) noimputed augment noisily // dryrun // force  // i.FIRST_BIRTH_YR
+= birth_yr i.raceth_fixed_focal i.first_educ_focal i.sample_type rel_start_all, by(SEX) chaindots add(1) burnin(3) rseed(8675309) noimputed augment // dryrun // noisily force  // i.FIRST_BIRTH_YR
 
 ;
 #delimit cr
@@ -346,7 +347,7 @@ replace imputed=1 if inrange(_mi_m,1,10)
 inspect weekly_hrs_t_focal earnings_t_focal housework_focal weekly_hrs_t1_focal earnings_t1_focal housework_t1_focal if imputed==0
 inspect weekly_hrs_t_focal earnings_t_focal housework_focal weekly_hrs_t1_focal earnings_t1_focal housework_t1_focal if imputed==1
 
-tabstat  weekly_hrs_t_focal weekly_hrs_t1_focal earnings_t_focal earnings_t1_focal housework_focal housework_t1_focal religion_focal, by(imputed) stats(mean sd p50)
+tabstat  weekly_hrs_t_focal weekly_hrs_t1_focal earnings_t_focal earnings_t1_focal housework_focal housework_t1_focal religion_focal, by(imputed) stats(mean sd p25 p50 p75)
 tab religion_focal imputed, col
 
 twoway (histogram weekly_hrs_t_focal if imputed==0 & weekly_hrs_t_focal<=100, width(2) color(blue%30)) (histogram weekly_hrs_t_focal if imputed==1 & weekly_hrs_t_focal<=100, width(2) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Weekly Employment Hours")
