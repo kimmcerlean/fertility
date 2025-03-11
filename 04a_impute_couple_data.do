@@ -348,30 +348,33 @@ mi impute chained
 
 save "$created_data/PSID_births_imputed_wide.dta", replace
 
-/*
-// let's look at some descriptives regarding data distributions
+********************************************************************************
+**# let's look at some descriptives regarding data distributions
+********************************************************************************
+// first, reshape long
+mi reshape long partnered raceth_focal any_psid_births_t_focal any_psid_births_t_hh any_psid_births_t1_focal any_psid_births_t1_hh FAMILY_INTERVIEW_NUM_ state_fips age_focal AGE_YOUNG_CHILD_ children cohab_est_head college_focal COR_IMM_WT_ CORE_WEIGHT_ COUPLE_STATUS_HEAD_ CROSS_SECTION_FAM_WT_ CROSS_SECTION_WT_ earnings_t_focal earnings_t1_focal earnings_t2_focal educ_focal educ_t1_focal educ_t2_focal employed_focal employed_t1_earn_focal employed_t1_hrs_focal employed_t2_focal first_birth_sample_flag HOUSE_STATUS_ housework_focal housework_t1_focal housework_t2_focal in_sample LONG_WT_ MARITAL_PAIRS_ marital_status_updated MARST_DEFACTO_HEAD_ MARST_LEGAL_HEAD_ moved MOVED_YEAR_ NUM_CHILDREN_ NUM_IN_HH_ rel_status RELATION_ survey_yr relationship_est religion_focal religion_t1_focal religion_t2_focal second_birth_sample_flag second_birth_flag_cons structural_familism TOTAL_INCOME_T_FAMILY TOTAL_INCOME_T1_FAMILY_ TOTAL_INCOME_T2_FAMILY_ weekly_hrs_t_focal weekly_hrs_t1_focal weekly_hrs_t2_focal shared_birth_in_yr ///
+, i(unique_id partner_id) j(relationship_duration)
+
+mi convert flong
+
+browse unique_id partner_id relationship_duration weekly_hrs_t_focal housework_focal _mi_miss _mi_m _mi_id
 
 gen imputed=0
 replace imputed=1 if inrange(_mi_m,1,10)
 
-inspect weekly_hrs_t_focal earnings_t_focal housework_focal weekly_hrs_t_sp earnings_t_sp housework_sp if imputed==0
-inspect weekly_hrs_t_focal earnings_t_focal housework_focal weekly_hrs_t_sp earnings_t_sp housework_sp if imputed==1
+inspect weekly_hrs_t_focal earnings_t_focal housework_focal weekly_hrs_t1_focal earnings_t1_focal housework_t1_focal if imputed==0
+inspect weekly_hrs_t_focal earnings_t_focal housework_focal weekly_hrs_t1_focal earnings_t1_focal housework_t1_focal if imputed==1
 
-tabstat  weekly_hrs_t_focal weekly_hrs_t1_focal weekly_hrs_t2_focal earnings_t_focal earnings_t1_focal earnings_t2_focal housework_focal housework_t1_focal housework_t2_focal educ_focal educ_t1_focal educ_t2_focal religion_focal religion_t1_focal religion_t2_focal, by(imputed) stats(mean sd p50)
-tabstat  weekly_hrs_t_sp weekly_hrs_t1_sp weekly_hrs_t2_sp earnings_t_sp earnings_t1_sp earnings_t2_sp housework_sp housework_t1_sp housework_t2_sp educ_sp educ_t1_sp educ_t2_sp religion_sp religion_t1_sp religion_t2_sp, by(imputed) stats(mean sd p50)
+tabstat  weekly_hrs_t_focal earnings_t_focal housework_focal weekly_hrs_t1_focal earnings_t1_focal housework_t1_focal religion_focal, by(imputed) stats(mean sd p50)
 
 twoway (histogram weekly_hrs_t_focal if imputed==0 & weekly_hrs_t_focal<=100, width(2) color(blue%30)) (histogram weekly_hrs_t_focal if imputed==1 & weekly_hrs_t_focal<=100, width(2) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Weekly Employment Hours")
 twoway (histogram housework_focal if imputed==0 & housework_focal<=50, width(2) color(blue%30)) (histogram housework_focal if imputed==1 & housework_focal<=50, width(2) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Weekly Housework Hours")
 twoway (histogram earnings_t_focal if imputed==0 & earnings_t_focal >=-1000 & earnings_t_focal <=300000, width(10000) color(blue%30)) (histogram earnings_t_focal if imputed==1 & earnings_t_focal >=-1000 & earnings_t_focal <=300000, width(10000) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Annual Earnings")
 
-twoway (histogram weekly_hrs_t_sp if imputed==0 & weekly_hrs_t_sp<=100, width(2) color(blue%30)) (histogram weekly_hrs_t_sp if imputed==1 & weekly_hrs_t_sp<=100, width(2) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Weekly Employment Hours")
-twoway (histogram housework_sp if imputed==0 & housework_sp<=50, width(2) color(blue%30)) (histogram housework_sp if imputed==1 & housework_sp<=50, width(2) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Weekly Housework Hours")
-twoway (histogram earnings_t_sp if imputed==0 & earnings_t_sp >=-1000 & earnings_t_sp <=300000, width(10000) color(blue%30)) (histogram earnings_t_sp if imputed==1 & earnings_t_sp >=-1000 & earnings_t_sp <=300000, width(10000) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Annual Earnings")
-
 ********************************************************************************
 **# Merge partner's imputed characteristics
 ********************************************************************************
-
+/*
 merge m:1 partner_id survey_yr using "$created_data\PSID_individ_allyears.dta", keepusing(*_sp) // created step 2
 	// have to do m:1 bc of missing partner ids; it's not a unique list of partners
 drop if _merge==2
