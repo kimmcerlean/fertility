@@ -118,6 +118,8 @@ drop if first_educ_focal==.
 
 save "$temp/PSID_couples_wide_toimpute.dta", replace
 
+browse unique_id partner_id min_dur max_dur weekly_hrs_t1_focal*
+
 ********************************************************************************
 **# Imputation
 ********************************************************************************
@@ -328,7 +330,14 @@ mi impute chained
 ;
 #delimit cr
 
+// I'm an idiot and somehow the rel dur variables got lost?
+merge 1:1 unique_id partner_id using "$temp/PSID_couples_wide_toimpute.dta", keepusing(min_dur max_dur total_rel_dur)
+drop if _merge==2
+drop _merge
+
 save "$created_data/PSID_births_imputed_wide.dta", replace
+
+// browse unique_id partner_id min_dur max_dur weekly_hrs_t1_focal*
 
 ********************************************************************************
 **# let's look at some descriptives regarding data distributions
@@ -344,6 +353,15 @@ browse unique_id partner_id relationship_duration weekly_hrs_t_focal housework_f
 gen imputed=0
 replace imputed=1 if inrange(_mi_m,1,10)
 
+// save "created data/PSID_births_imputed_long.dta", replace // this where it saved in HPC, but it's currently 7GB
+save "$created_data_large/PSID_births_imputed_long.dta", replace // this where it saved in HPC, but it's currently 7GB
+
+drop if relationship_duration > max_dur
+
+mi update
+
+save "$created_data_large/PSID_births_imputed_long_sample.dta", replace
+
 inspect weekly_hrs_t_focal earnings_t_focal housework_focal weekly_hrs_t1_focal earnings_t1_focal housework_t1_focal if imputed==0
 inspect weekly_hrs_t_focal earnings_t_focal housework_focal weekly_hrs_t1_focal earnings_t1_focal housework_t1_focal if imputed==1
 
@@ -355,25 +373,3 @@ twoway (histogram weekly_hrs_t1_focal if imputed==0 & weekly_hrs_t1_focal<=200, 
 twoway (histogram housework_focal if imputed==0 & housework_focal<=50, width(2) color(blue%30)) (histogram housework_focal if imputed==1 & housework_focal<=50, width(2) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Weekly Housework Hours")
 twoway (histogram earnings_t_focal if imputed==0 & earnings_t_focal >=-1000 & earnings_t_focal <=300000, width(10000) color(blue%30)) (histogram earnings_t_focal if imputed==1 & earnings_t_focal >=-1000 & earnings_t_focal <=300000, width(10000) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Annual Earnings")
 
-********************************************************************************
-**# Merge partner's imputed characteristics
-********************************************************************************
-/*
-merge m:1 partner_id survey_yr using "$created_data\PSID_individ_allyears.dta", keepusing(*_sp) // created step 2
-	// have to do m:1 bc of missing partner ids; it's not a unique list of partners
-drop if _merge==2
-tab _merge
-inspect partner_id if _merge==1 // yes, unmatched are missing pid - it's about 15% of uniques; is this too many?
-inspect partner_id if _merge==3
-tabstat partner_id, by(_merge)
-unique unique_id, by(_merge)
-
-drop _merge
-
-replace age_sp = survey_yr - birth_yr_sp if age_sp==. & birth_yr_sp!=9999
-replace age_sp = . if age_sp < 0
-
-// because I imputed more data than I need, need to restrict to the actual survey years of the relationship again
-// (revisit this code post imputation)
-drop if survey_yr > last_survey_yr
-*/

@@ -17,6 +17,7 @@ if `"`c(hostname)'"' == "LAPTOP-TP2VHI6B"{
 
 	* created data files
 	global created_data "$homedir/Research Projects/Policy and Fertility/Stata/created data"
+	global created_data_large "C:/Users/mcerl/OneDrive - Istituto Universitario Europeo/projects/Policy and Fertility/large data files"
 
 	* results
 	global results "$homedir/Research Projects/Policy and Fertility/results"
