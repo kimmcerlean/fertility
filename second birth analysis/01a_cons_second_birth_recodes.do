@@ -14,20 +14,45 @@
 * and creates necessary couple-level variables and final sample restrictions
 * Also adds in birth DVs (right now time constant, need to be time-varying)
 
-use "$created_data/PSID_second_birth_sample.dta", clear
+/* Steps I wrote in file 5 we need to make sure are done by end of this file:
+* a. couple-level variables - do here
+* b. a flag for birth in year - do here
+* c. remove observations after relevant birth (e.g. after first birth for that sample) - did in prev file
+* d. deduplicate (so just one observation per year) - did in prev file
+* e. age restrictions (with matched partner data) - do here
+*/
 
-// first merge partner characteristics
-merge 1:1 partner_id survey_yr using "$created_data\PSID_individ_allyears.dta", keepusing(*_sp) // created step 2 - there are no missing partner ids for second births
+use "$created_data/PSID_second_birth_sample_cons.dta", clear
 
-drop if _merge==2
-tab _merge
-drop _merge
+********************************************************************************
+* First, look at imputation descriptives that I couldn't really do in other files
+********************************************************************************
+// let's look at some descriptives regarding data distributions
 
-replace age_sp = survey_yr - birth_yr_sp if age_sp==. & birth_yr_sp!=9999
-inspect age_sp
-inspect age_focal
+inspect weekly_hrs_t_focal earnings_t_focal housework_focal weekly_hrs_t_focal_sp earnings_t_focal_sp housework_focal_sp if imputed==0
+inspect weekly_hrs_t_focal earnings_t_focal housework_focal weekly_hrs_t_focal_sp earnings_t_focal_sp housework_focal_sp if imputed==1
 
-browse unique_id partner_id survey_yr SEX weekly_hrs_t_focal weekly_hrs_t_sp housework_focal housework_sp age_focal age_sp
+sum weekly_hrs_t_focal weekly_hrs_t_focal_x weekly_hrs_t1_focal weekly_hrs_t1_focal_x earnings_t_focal earnings_t_focal_x earnings_t1_focal earnings_t1_focal_x housework_focal housework_focal_x
+sum weekly_hrs_t_focal_sp weekly_hrs_t_focal_sp_x weekly_hrs_t1_focal_sp weekly_hrs_t1_focal_sp_x earnings_t_focal_sp earnings_t_focal_sp_x earnings_t1_focal_sp earnings_t1_focal_sp_x housework_focal_sp housework_focal_sp_x
+
+// focal 
+tabstat weekly_hrs_t_focal weekly_hrs_t_focal_x weekly_hrs_t1_focal weekly_hrs_t1_focal_x earnings_t_focal earnings_t_focal_x earnings_t1_focal earnings_t1_focal_x housework_focal housework_focal_x, by(imputed) stats(mean sd p50)
+tabstat  weekly_hrs_t_focal weekly_hrs_t1_focal earnings_t_focal earnings_t1_focal housework_focal housework_t1_focal weekly_hrs_t2_focal earnings_t2_focal housework_t2_focal, by(imputed) stats(mean sd p50)
+
+// spouse
+tabstat weekly_hrs_t_focal_sp weekly_hrs_t_focal_sp_x weekly_hrs_t1_focal_sp weekly_hrs_t1_focal_sp_x earnings_t_focal_sp earnings_t_focal_sp_x earnings_t1_focal_sp earnings_t1_focal_sp_x housework_focal_sp housework_focal_sp_x, by(imputed) stats(mean sd p50)
+tabstat  weekly_hrs_t_focal_sp weekly_hrs_t1_focal_sp earnings_t_focal_sp earnings_t1_focal_sp housework_focal_sp housework_t1_focal_sp weekly_hrs_t2_focal_sp earnings_t2_focal_sp housework_t2_focal_sp, by(imputed) stats(mean sd p50)
+
+twoway (histogram weekly_hrs_t_focal if imputed==0 & weekly_hrs_t_focal<=100, width(2) color(blue%30)) (histogram weekly_hrs_t_focal if imputed==1 & weekly_hrs_t_focal<=100, width(2) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Weekly Employment Hours")
+twoway (histogram weekly_hrs_t_focal_x if imputed==0 & weekly_hrs_t_focal_x<=100, width(2) color(blue%30)) (histogram weekly_hrs_t_focal_x if imputed==1 & weekly_hrs_t_focal_x<=100, width(2) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Weekly Employment Hours")
+twoway (histogram housework_focal if imputed==0 & housework_focal<=50, width(2) color(blue%30)) (histogram housework_focal if imputed==1 & housework_focal<=50, width(2) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Weekly Housework Hours")
+twoway (histogram earnings_t_focal if imputed==0 & earnings_t_focal >=-1000 & earnings_t_focal <=300000, width(10000) color(blue%30)) (histogram earnings_t_focal if imputed==1 & earnings_t_focal >=-1000 & earnings_t_focal <=300000, width(10000) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Annual Earnings")
+twoway (histogram earnings_t_focal_x if imputed==0 & earnings_t_focal_x >=-1000 & earnings_t_focal_x <=300000, width(5000) color(blue%30)) (histogram earnings_t_focal_x if imputed==1 & earnings_t_focal_x >=-1000 & earnings_t_focal_x <=300000, width(5000) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Annual Earnings")
+
+twoway (histogram weekly_hrs_t_focal_sp if imputed==0 & weekly_hrs_t_focal_sp<=100, width(2) color(blue%30)) (histogram weekly_hrs_t_focal_sp if imputed==1 & weekly_hrs_t_focal_sp<=100, width(2) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Weekly Employment Hours")
+twoway (histogram housework_focal_sp if imputed==0 & housework_focal_sp<=50, width(2) color(blue%30)) (histogram housework_focal_sp if imputed==1 & housework_focal_sp<=50, width(2) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Weekly Housework Hours")
+twoway (histogram earnings_t_focal_sp if imputed==0 & earnings_t_focal_sp >=-1000 & earnings_t_focal_sp <=300000, width(10000) color(blue%30)) (histogram earnings_t_focal_sp if imputed==1 & earnings_t_focal_sp >=-1000 & earnings_t_focal_sp <=300000, width(10000) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Annual Earnings")
+
 
 ********************************************************************************
 * add in birth indicators - aka create our DV
@@ -35,31 +60,31 @@ browse unique_id partner_id survey_yr SEX weekly_hrs_t_focal weekly_hrs_t_sp hou
 unique unique_id partner_id, by(joint_second_birth_opt2)
 replace joint_second_birth_opt2=0 if joint_second_birth_opt2==.
 
-browse unique_id partner_id survey_yr rel_start_yr rel_end_yr any_births_pre_rel joint_second_birth_opt2 joint_second_birth_yr joint_first_birth_yr joint_second_birth_timing first_survey_yr last_survey_yr first_survey_yr_sp last_survey_yr_sp cah_child_birth_yr2_ref cah_child_birth_yr2_sp shared_birth2_refyr shared_birth2_spyr num_births_pre_ref num_births_pre_sp
+browse unique_id partner_id survey_yr rel_start_all rel_end_all any_births_pre_rel joint_second_birth_opt2 joint_second_birth_yr joint_first_birth_yr joint_second_birth_timing first_survey_yr last_survey_yr first_survey_yr_sp last_survey_yr_sp cah_child_birth_yr2_ref cah_child_birth_yr2_sp shared_birth2_refyr shared_birth2_spyr num_births_pre_ref num_births_pre_sp
 
 tab cah_child_birth_yr2_ref joint_second_birth_opt2, m // so there should not be birth years here for 0s? about 10% have? so some (most?) is bc AFTER relationship ended
 tab cah_child_birth_yr2_ref joint_second_birth_opt2 if num_births_pre_ref==0 & num_births_pre_sp==0, m 
 tab shared_birth2_refyr joint_second_birth_opt2, m col nofreq // so there are less shared, but that's almost worse? are actually better bc suggests it is shared? and just before teh relationship started
 tab shared_birth2_spyr joint_second_birth_opt2, m col nofreq
+tab joint_second_birth_yr joint_second_birth_opt2, m
 
 foreach var in any_births_pre_rel num_births_pre_ref num_births_pre_indv_ref num_births_pre_sp num_births_pre_indv_sp{
 	tab `var', m
 }
-// so the ref and spouse births pre rel at INDIVIDUAL level + the joint indicator are all 0
-// so I think these are pre rel births that are shared? so I do need to remove? maybe it's okay if the first birth is pre, but the second is post and observed? bc that is what I care about here?
+// so these are all zero
 
 gen had_second_birth=0
 replace had_second_birth=1 if survey_yr==joint_second_birth_yr
 tab had_second_birth, m
 tab joint_second_birth_opt2 had_second_birth, m
 
-browse unique_id partner_id survey_yr rel_start_yr rel_end_yr joint_second_birth_opt2 had_second_birth joint_second_birth_yr joint_second_birth_timing first_survey_yr last_survey_yr first_survey_yr_sp last_survey_yr_sp cah_child_birth_yr2_ref cah_child_birth_yr2_sp shared_birth2_refyr shared_birth2_spyr num_births_pre_ref num_births_pre_sp
+browse unique_id partner_id survey_yr rel_start_all rel_end_all joint_second_birth_opt2 had_second_birth joint_second_birth_yr joint_second_birth_timing first_survey_yr last_survey_yr first_survey_yr_sp last_survey_yr_sp cah_child_birth_yr2_ref cah_child_birth_yr2_sp shared_birth2_refyr shared_birth2_spyr num_births_pre_ref num_births_pre_sp
 
 gen time_since_first_birth= survey_yr - joint_first_birth_yr
 tab time_since_first_birth, m
 tab time_since_first_birth had_second_birth, m row
 
-browse unique_id partner_id survey_yr rel_start_yr rel_end_yr joint_first_birth_yr time_since_first_birth had_second_birth joint_second_birth_opt2 joint_second_birth_yr joint_second_birth_timing
+browse unique_id partner_id survey_yr rel_start_all rel_end_all joint_first_birth_yr time_since_first_birth had_second_birth joint_second_birth_opt2 joint_second_birth_yr joint_second_birth_timing
 
 ********************************************************************************
 * more sample restrictions (namely, age of partner and same-gender couples)
@@ -69,10 +94,10 @@ drop if SEX==1 & SEX_sp==1
 drop if SEX==2 & SEX_sp==2
 
 gen age_man = age_focal if SEX==1
-replace age_man = age_sp if SEX==2
+replace age_man = age_focal_sp if SEX==2
 
 gen age_woman = age_focal if SEX==2
-replace age_woman = age_sp if SEX==1
+replace age_woman = age_focal_sp if SEX==1
 
 // browse unique_id partner_id survey_yr SEX SEX_sp age_man age_woman age_focal age_sp
 
@@ -81,156 +106,127 @@ keep if (age_man>=20 & age_man<=60) & (age_woman>=20 & age_woman<50) // Comolli 
 unique unique_id partner_id
 unique unique_id partner_id if joint_second_birth_opt2==1
 
-unique unique_id partner_id if rel_start_yr >= 2005 // focus on post-recession period?
-unique unique_id partner_id if joint_second_birth_opt2==1 & rel_start_yr >= 2005 // focus on post-recession period?
+unique unique_id partner_id if rel_start_all >= 2005 // focus on post-recession period?
+unique unique_id partner_id if joint_second_birth_opt2==1 & rel_start_all >= 2005 // focus on post-recession period?
+
+mi update 
 
 ********************************************************************************
-**# Exploring imputation here instead
-* (was trying to use the full couple-level data for more observations but taking FOREVER)
+**# First some variable cleanup and things
 ********************************************************************************
-// clean up data
-drop if raceth_fixed_focal==. // for now, just so this is actually complete
-drop if age_focal==. // so complete
-drop if partner_id==. // so only MATCHED observations for now
-drop if age_sp==.
-drop if raceth_fixed_sp==. 
 
-mi set flong
-mi register imputed weekly_hrs_t_focal weekly_hrs_t1_focal weekly_hrs_t2_focal housework_focal housework_t1_focal housework_t2_focal earnings_t_focal earnings_t1_focal earnings_t2_focal educ_focal educ_t1_focal educ_t2_focal religion_focal religion_t1_focal religion_t2_focal weekly_hrs_t_sp weekly_hrs_t1_sp weekly_hrs_t2_sp earnings_t_sp earnings_t1_sp earnings_t2_sp housework_sp housework_t1_sp housework_t2_sp educ_sp educ_t1_sp educ_t2_sp religion_sp religion_t1_sp religion_t2_sp NUM_CHILDREN_ AGE_YOUNG_CHILD_ 
-mi register regular survey_yr age_focal age_sp SEX SEX_sp raceth_fixed_focal raceth_fixed_sp sample_type sample_type_sp rel_start_yr had_second_birth time_since_first_birth // FIRST_BIRTH_YR relationship_est
+browse unique_id partner_id survey_yr SEX SEX_sp weekly_hrs_t_focal weekly_hrs_t_focal_x weekly_hrs_t1_focal weekly_hrs_t1_focal_x weekly_hrs_t_focal_sp weekly_hrs_t_focal_sp_x weekly_hrs_t1_focal_sp weekly_hrs_t1_focal_sp_x housework_focal housework_t1_focal housework_focal_sp housework_t1_focal_sp _mi_m // how misaligned are t, t1 and t2? Should I leave as is via imputation or fill in t1 using t, etc?
+browse unique_id partner_id survey_yr SEX SEX_sp weekly_hrs_t_focal weekly_hrs_t1_focal weekly_hrs_t_focal_sp weekly_hrs_t1_focal_sp housework_focal housework_t1_focal housework_focal_sp housework_t1_focal_sp _mi_m //
 
-#delimit ;
+// okay, want to put t in t1, but use imputed value for first year
+* Hours focal
+mi passive: gen weekly_hrs_t1 = .
+mi passive: replace weekly_hrs_t1 = weekly_hrs_t_focal[_n-1] if unique_id == unique_id[_n-1] & partner_id == partner_id[_n-1] & relationship_duration == relationship_duration[_n-1] + 1 // bysort _mi_m unique_id partner_id relationship_duration: 
+mi passive: replace weekly_hrs_t1 = weekly_hrs_t1_focal if weekly_hrs_t1==.
 
-mi impute chained
+browse unique_id partner_id survey_yr SEX SEX_sp weekly_hrs_t_focal weekly_hrs_t1 weekly_hrs_t1_focal _mi_m //
 
-/* work hours */
-(pmm, knn(5) include (weekly_hrs_t1_focal weekly_hrs_t2_focal housework_focal earnings_t_focal educ_focal religion_focal NUM_CHILDREN_ AGE_YOUNG_CHILD_)) weekly_hrs_t_focal
-(pmm, knn(5) include (weekly_hrs_t_focal weekly_hrs_t2_focal housework_t1_focal earnings_t1_focal educ_t1_focal religion_t1_focal)) weekly_hrs_t1_focal
-(pmm, knn(5) include (weekly_hrs_t_focal weekly_hrs_t1_focal housework_t2_focal earnings_t2_focal educ_t2_focal religion_t2_focal)) weekly_hrs_t2_focal
+* Earnings focal
+mi passive: gen earnings_t1 = .
+mi passive: replace earnings_t1 = earnings_t_focal[_n-1] if unique_id == unique_id[_n-1] & partner_id == partner_id[_n-1] & relationship_duration == relationship_duration[_n-1] + 1 // bysort _mi_m unique_id partner_id relationship_duration: 
+mi passive: replace earnings_t1 = earnings_t1_focal if earnings_t1==.
 
-(pmm, knn(5) include (weekly_hrs_t1_sp weekly_hrs_t2_sp housework_sp earnings_t_sp educ_sp religion_sp NUM_CHILDREN_ AGE_YOUNG_CHILD_)) weekly_hrs_t_sp
-(pmm, knn(5) include (weekly_hrs_t_sp weekly_hrs_t2_sp housework_t1_sp earnings_t1_sp educ_t1_sp religion_t1_sp)) weekly_hrs_t1_sp
-(pmm, knn(5) include (weekly_hrs_t_sp weekly_hrs_t1_sp housework_t2_sp earnings_t2_sp educ_t2_sp religion_t2_sp)) weekly_hrs_t2_sp
+* Housework focal
+mi passive: gen housework_t1 = .
+mi passive: replace housework_t1 = housework_focal[_n-1] if unique_id == unique_id[_n-1] & partner_id == partner_id[_n-1] & relationship_duration == relationship_duration[_n-1] + 1 // bysort _mi_m unique_id partner_id relationship_duration: 
+mi passive: replace housework_t1 = housework_t1_focal if housework_t1==.
 
-/* earnings */
-(pmm, knn(5) include (weekly_hrs_t_focal earnings_t2_focal housework_focal earnings_t1_focal educ_focal religion_focal NUM_CHILDREN_ AGE_YOUNG_CHILD_)) earnings_t_focal
-(pmm, knn(5) include (weekly_hrs_t1_focal earnings_t2_focal housework_t1_focal earnings_t_focal educ_t1_focal religion_t1_focal)) earnings_t1_focal
-(pmm, knn(5) include (earnings_t_focal weekly_hrs_t2_focal housework_t2_focal earnings_t1_focal educ_t2_focal religion_t2_focal)) earnings_t2_focal
+* Hours spouse
+mi passive: gen weekly_hrs_t1_sp = .
+mi passive: replace weekly_hrs_t1_sp = weekly_hrs_t_focal_sp[_n-1] if unique_id == unique_id[_n-1] & partner_id == partner_id[_n-1] & relationship_duration == relationship_duration[_n-1] + 1 // bysort _mi_m unique_id partner_id relationship_duration: 
+mi passive: replace weekly_hrs_t1_sp = weekly_hrs_t1_focal_sp if weekly_hrs_t1_sp==.
 
-(pmm, knn(5) include (weekly_hrs_t_sp earnings_t2_sp housework_sp earnings_t1_sp educ_sp religion_sp NUM_CHILDREN_ AGE_YOUNG_CHILD_)) earnings_t_sp
-(pmm, knn(5) include (weekly_hrs_t1_sp earnings_t2_sp housework_t1_sp earnings_t_sp educ_t1_sp religion_t1_sp)) earnings_t1_sp
-(pmm, knn(5) include (earnings_t_sp weekly_hrs_t2_sp housework_t2_sp earnings_t1_sp educ_t2_sp religion_t2_sp)) earnings_t2_sp
+* Earnings spouse
+mi passive: gen earnings_t1_sp = .
+mi passive: replace earnings_t1_sp = earnings_t_focal_sp[_n-1] if unique_id == unique_id[_n-1] & partner_id == partner_id[_n-1] & relationship_duration == relationship_duration[_n-1] + 1 // bysort _mi_m unique_id partner_id relationship_duration: 
+mi passive: replace earnings_t1_sp = earnings_t1_focal_sp if earnings_t1_sp==.
 
-/* housework */
-(pmm, knn(5) include (weekly_hrs_t_focal housework_t2_focal earnings_t_focal housework_t1_focal educ_focal religion_focal NUM_CHILDREN_ AGE_YOUNG_CHILD_)) housework_focal
-(pmm, knn(5) include (weekly_hrs_t1_focal housework_t2_focal housework_focal earnings_t1_focal educ_t1_focal religion_t1_focal)) housework_t1_focal
-(pmm, knn(5) include (housework_t1_focal weekly_hrs_t2_focal earnings_t2_focal housework_focal educ_t2_focal religion_t2_focal)) housework_t2_focal
+* Housework spouse
+mi passive: gen housework_t1_sp = .
+mi passive: replace housework_t1_sp = housework_focal_sp[_n-1] if unique_id == unique_id[_n-1] & partner_id == partner_id[_n-1] & relationship_duration == relationship_duration[_n-1] + 1 // bysort _mi_m unique_id partner_id relationship_duration: 
+mi passive: replace housework_t1_sp = housework_t1_focal_sp if housework_t1_sp==.
 
-(pmm, knn(5) include (weekly_hrs_t_sp housework_t2_sp earnings_t_sp housework_t1_sp educ_sp religion_sp NUM_CHILDREN_ AGE_YOUNG_CHILD_)) housework_sp
-(pmm, knn(5) include (weekly_hrs_t1_sp housework_t2_sp housework_sp earnings_t1_sp educ_t1_sp religion_t1_sp)) housework_t1_sp
-(pmm, knn(5) include (housework_t1_sp weekly_hrs_t2_sp earnings_t2_sp housework_sp educ_t2_sp religion_t2_sp)) housework_t2_sp
 
-/* other controls */
-(ologit, include (educ_t2_focal educ_t1_focal)) educ_focal
-(ologit, include (educ_t2_focal educ_focal)) educ_t1_focal
-(ologit, include (educ_focal educ_t1_focal)) educ_t2_focal
-(pmm, knn(5) include (weekly_hrs_t_focal religion_t2_focal earnings_t_focal housework_focal educ_focal religion_t1_focal NUM_CHILDREN_ AGE_YOUNG_CHILD_)) religion_focal
-(pmm, knn(5) include (weekly_hrs_t1_focal housework_t1_focal religion_t2_focal earnings_t1_focal educ_t1_focal religion_focal)) religion_t1_focal
-(pmm, knn(5) include (religion_focal weekly_hrs_t2_focal earnings_t2_focal housework_t2_focal educ_t2_focal religion_t1_focal)) religion_t2_focal
+foreach var in weekly_hrs_t1 earnings_t1 housework_t1 weekly_hrs_t1_sp earnings_t1_sp housework_t1_sp{  
+	// inspect `var' if _mi_m != 0  
+	assert `var' != . if _mi_m != 0  
+} 
 
-(ologit, include (educ_t2_sp educ_t1_sp)) educ_sp
-(ologit, include (educ_t2_sp educ_sp)) educ_t1_sp
-(ologit, include (educ_sp educ_t1_sp)) educ_t2_sp
-(pmm, knn(5) include (weekly_hrs_t_sp religion_t2_sp earnings_t_sp housework_sp educ_sp religion_t1_sp NUM_CHILDREN_ AGE_YOUNG_CHILD_)) religion_sp
-(pmm, knn(5) include (weekly_hrs_t1_sp housework_t1_sp religion_t2_sp earnings_t1_sp educ_t1_sp religion_sp)) religion_t1_sp
-(pmm, knn(5) include (religion_sp weekly_hrs_t2_sp earnings_t2_sp housework_t2_sp educ_t2_sp religion_t1_sp)) religion_t2_sp
+browse unique_id partner_id survey_yr SEX SEX_sp earnings_t_focal earnings_t1 earnings_t1_focal housework_focal housework_t1 housework_t1_focal earnings_t_focal_sp earnings_t1_sp earnings_t1_focal_sp housework_focal_sp housework_t1_sp housework_t1_focal_sp _mi_m
 
-/* child vars */
-(pmm, knn(5) include (weekly_hrs_t_focal housework_focal earnings_t_focal educ_focal religion_focal weekly_hrs_t_sp housework_sp earnings_t_sp educ_sp religion_sp AGE_YOUNG_CHILD_)) NUM_CHILDREN_
-(pmm, knn(5) include (weekly_hrs_t_focal housework_focal earnings_t_focal educ_focal religion_focal weekly_hrs_t_sp housework_sp earnings_t_sp educ_sp religion_sp NUM_CHILDREN_)) AGE_YOUNG_CHILD_
+sum weekly_hrs_t1 weekly_hrs_t1_focal weekly_hrs_t1_sp weekly_hrs_t1_focal_sp earnings_t1 earnings_t1_focal earnings_t1_sp earnings_t1_focal_sp housework_t1 housework_t1_focal housework_t1_sp housework_t1_focal_sp
+tabstat weekly_hrs_t1 weekly_hrs_t1_focal weekly_hrs_t1_sp weekly_hrs_t1_focal_sp earnings_t1 earnings_t1_focal earnings_t1_sp earnings_t1_focal_sp housework_t1 housework_t1_focal housework_t1_sp housework_t1_focal_sp, by(imputed)
 
-= i.survey_yr age_focal age_sp i.SEX i.SEX_sp i.raceth_fixed_focal i.raceth_fixed_sp i.sample_type i.sample_type_sp  i.rel_start_yr i.had_second_birth i.time_since_first_birth, chaindots add(10) rseed(8675309) noimputed augment // chainonly savetrace(impstats) // dryrun // force augment noisily burnin(1)
-/* if I want to do by sex
-= i.survey_yr i.age_focal i.raceth_fixed_focal i.sample_type  i.rel_start_yr i.relationship_est i.shared_birth_in_yr i.FIRST_BIRTH_YR, by(SEX) chaindots add(1) rseed(8675309) noimputed noisily // dryrun // force augment noisily
-*/
+// now create gendered versions of key variables
 
-;
-#delimit cr
-
-save "$temp/PSID_second_birth_imputed.dta", replace
-
-// let's look at some descriptives regarding data distributions
-
-gen imputed=0
-replace imputed=1 if inrange(_mi_m,1,10)
-
-inspect weekly_hrs_t_focal earnings_t_focal housework_focal weekly_hrs_t_sp earnings_t_sp housework_sp if imputed==0
-inspect weekly_hrs_t_focal earnings_t_focal housework_focal weekly_hrs_t_sp earnings_t_sp housework_sp if imputed==1
-
-tabstat  weekly_hrs_t_focal weekly_hrs_t1_focal weekly_hrs_t2_focal earnings_t_focal earnings_t1_focal earnings_t2_focal housework_focal housework_t1_focal housework_t2_focal educ_focal educ_t1_focal educ_t2_focal religion_focal religion_t1_focal religion_t2_focal, by(imputed) stats(mean sd p50)
-tabstat  weekly_hrs_t_sp weekly_hrs_t1_sp weekly_hrs_t2_sp earnings_t_sp earnings_t1_sp earnings_t2_sp housework_sp housework_t1_sp housework_t2_sp educ_sp educ_t1_sp educ_t2_sp religion_sp religion_t1_sp religion_t2_sp, by(imputed) stats(mean sd p50)
-
-twoway (histogram weekly_hrs_t_focal if imputed==0 & weekly_hrs_t_focal<=100, width(2) color(blue%30)) (histogram weekly_hrs_t_focal if imputed==1 & weekly_hrs_t_focal<=100, width(2) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Weekly Employment Hours")
-twoway (histogram housework_focal if imputed==0 & housework_focal<=50, width(2) color(blue%30)) (histogram housework_focal if imputed==1 & housework_focal<=50, width(2) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Weekly Housework Hours")
-twoway (histogram earnings_t_focal if imputed==0 & earnings_t_focal >=-1000 & earnings_t_focal <=300000, width(10000) color(blue%30)) (histogram earnings_t_focal if imputed==1 & earnings_t_focal >=-1000 & earnings_t_focal <=300000, width(10000) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Annual Earnings")
-
-twoway (histogram weekly_hrs_t_sp if imputed==0 & weekly_hrs_t_sp<=100, width(2) color(blue%30)) (histogram weekly_hrs_t_sp if imputed==1 & weekly_hrs_t_sp<=100, width(2) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Weekly Employment Hours")
-twoway (histogram housework_sp if imputed==0 & housework_sp<=50, width(2) color(blue%30)) (histogram housework_sp if imputed==1 & housework_sp<=50, width(2) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Weekly Housework Hours")
-twoway (histogram earnings_t_sp if imputed==0 & earnings_t_sp >=-1000 & earnings_t_sp <=300000, width(10000) color(blue%30)) (histogram earnings_t_sp if imputed==1 & earnings_t_sp >=-1000 & earnings_t_sp <=300000, width(10000) color(red%30)), legend(order(1 "Observed" 2 "Imputed") rows(1) position(6)) xtitle("Annual Earnings")
-
-********************************************************************************
-**# Create gendered variables and couple-level IVs
-********************************************************************************
-use "$temp/PSID_second_birth_imputed.dta", clear
-
-gen imputed=0
-replace imputed=1 if inrange(_mi_m,1,10)
-
-browse unique_id partner_id survey_yr SEX SEX_sp weekly_hrs_t_focal weekly_hrs_t1_focal weekly_hrs_t_sp weekly_hrs_t1_sp housework_focal housework_t1_focal housework_sp housework_t1_sp _mi_m // the spouse HW estimation seems worse than focal. should I do BEFORE deduplicating and then rematch that info? also, how misaligned are t, t1 and t2? Should I leave as is via imputation or fill in t1 using t, etc?
-
-foreach var in weekly_hrs_t weekly_hrs_t1 weekly_hrs_t2 earnings_t earnings_t1 earnings_t2 housework housework_t1 housework_t2 religion religion_t1 religion_t2 educ educ_t1 educ_t2 raceth raceth_fixed{
+foreach var in weekly_hrs_t weekly_hrs_t2 earnings_t earnings_t2 housework housework_t2 first_religion religion religion_t1 religion_t2 educ educ_t1 educ_t2 first_educ raceth_fixed{
 	mi passive: gen `var'_man = `var'_focal if SEX==1
-	mi passive: replace `var'_man = `var'_sp if SEX==2
+	mi passive: replace `var'_man = `var'_focal_sp if SEX==2
 	
 	mi passive: gen `var'_woman = `var'_focal if SEX==2
+	mi passive: replace `var'_woman = `var'_focal_sp if SEX==1
+}
+
+foreach var in weekly_hrs_t1 earnings_t1 housework_t1 first_marital_status{
+	mi passive: gen `var'_man = `var' if SEX==1
+	mi passive: replace `var'_man = `var'_sp if SEX==2
+	
+	mi passive: gen `var'_woman = `var' if SEX==2
 	mi passive: replace `var'_woman = `var'_sp if SEX==1
 }
 
-browse unique_id partner_id survey_yr SEX SEX_sp weekly_hrs_t_woman weekly_hrs_t_man weekly_hrs_t_focal weekly_hrs_t_sp
+********************************************************************************
+**# Now make couple-level IVs and control variables
+* Making t and t-1 versions of all variables
+********************************************************************************
 
 // couple-level education
-mi passive: gen educ_type=.
-mi passive: replace educ_type=1 if inrange(educ_man,1,3) & inrange(educ_woman,1,3)
-mi passive: replace educ_type=2 if educ_man == 4 & inrange(educ_woman,1,3)
-mi passive: replace educ_type=3 if inrange(educ_man,1,3) & educ_woman == 4
-mi passive: replace educ_type=4 if educ_man == 4 & educ_woman == 4
+* First, need to create fixed versions
+tab educ_man, m
+tab educ_woman, m
 
-tab educ_man educ_woman, cell nofreq
-mi estimate: proportion educ_type
+browse unique_id partner_id relationship_duration educ_man educ_t1_man educ_t2_man educ_woman educ_t1_woman educ_t2_woman _mi_m
 
-mi passive: gen educ_type_t1=.
-mi passive: replace educ_type_t1=1 if inrange(educ_t1_man,1,3) & inrange(educ_t1_woman,1,3)
-mi passive: replace educ_type_t1=2 if educ_t1_man == 4 & inrange(educ_t1_woman,1,3)
-mi passive: replace educ_type_t1=3 if inrange(educ_t1_man,1,3) & educ_t1_woman == 4
-mi passive: replace educ_type_t1=4 if educ_t1_man == 4 & educ_t1_woman == 4
+bysort unique_id partner_id _mi_m: egen educ_fixed_man = min(educ_man)
+replace educ_fixed_man = first_educ_man if educ_fixed_man==.
+bysort unique_id partner_id _mi_m: egen educ_fixed_woman = min(educ_woman)
+replace educ_fixed_woman = first_educ_woman if educ_fixed_woman==.
 
-mi passive: gen educ_type_t2=.
-mi passive: replace educ_type_t2=1 if inrange(educ_t2_man,1,3) & inrange(educ_t2_woman,1,3)
-mi passive: replace educ_type_t2=2 if educ_t2_man == 4 & inrange(educ_t2_woman,1,3)
-mi passive: replace educ_type_t2=3 if inrange(educ_t2_man,1,3) & educ_t2_woman == 4
-mi passive: replace educ_type_t2=4 if educ_t2_man == 4 & educ_t2_woman == 4
+label values educ_fixed_man educ_fixed_woman educ_man educ_t1_man educ_t2_man educ_woman educ_t1_woman educ_t2_woman first_educ_man first_educ_woman educ
+
+sort _mi_m unique_id partner_id relationship_duration
+browse unique_id partner_id relationship_duration educ_fixed_man first_educ_man educ_man educ_t1_man educ_t2_man educ_fixed_woman first_educ_woman educ_woman educ_t1_woman educ_t2_woman _mi_m
+
+gen educ_type=. // making this fixed instead of time varying, and none of this is imputed, so no need to be passive
+replace educ_type=1 if inrange(educ_fixed_man,1,3) & inrange(educ_fixed_woman,1,3)
+replace educ_type=2 if educ_fixed_man == 4 & inrange(educ_fixed_woman,1,3)
+replace educ_type=3 if inrange(educ_fixed_man,1,3) & educ_fixed_woman == 4
+replace educ_type=4 if educ_fixed_man == 4 & educ_fixed_woman == 4
+
+tab educ_fixed_man educ_fixed_woman, cell nofreq
+tab educ_type, m
 
 label define educ_type 1 "Neither College" 2 "Him College" 3 "Her College" 4 "Both College"
-label values educ_type educ_type_t1 educ_type_t2 educ_type
+label values educ_type educ_type
+
+gen couple_educ_gp=.
+replace couple_educ_gp=0 if educ_type==1
+replace couple_educ_gp=1 if inlist(educ_type,2,3,4)
+
+label define couple_educ 0 "Neither College" 1 "At Least One College"
+label values couple_educ_gp couple_educ
 
 // income and division of paid labor
-foreach var in earnings_t_man earnings_t1_man earnings_t2_man earnings_t_woman earnings_t1_woman earnings_t2_woman{
-	replace `var' = 0 if `var' < 0
+foreach var in earnings_t_man earnings_t_woman earnings_t1_man earnings_t1_woman{
+	mi passive: replace `var' = 0 if `var' < 0 // rogue -99999s
 }
 
 mi passive: egen couple_earnings = rowtotal(earnings_t_man earnings_t_woman)
-browse unique_id partner_id SEX SEX_sp survey_yr couple_earnings earnings_t_man earnings_t_woman earnings_t_focal earnings_t_sp
-	
 mi passive: gen female_earn_pct = earnings_t_woman/(couple_earnings)
 
 mi passive: gen hh_earn_type=.
@@ -242,9 +238,10 @@ mi passive: replace hh_earn_type=4 if earnings_t_man==0 & earnings_t_woman==0
 label define hh_earn_type 1 "Dual Earner" 2 "Male BW" 3 "Female BW" 4 "No Earners"
 label values hh_earn_type hh_earn_type
 
+browse unique_id partner_id SEX SEX_sp survey_yr hh_earn_type couple_earnings female_earn_pct earnings_t_man earnings_t_woman earnings_t_focal earnings_t_focal_sp
+
 * t-1 version
 mi passive: egen couple_earnings_t1 = rowtotal(earnings_t1_man earnings_t1_woman)
-	
 mi passive: gen female_earn_pct_t1 = earnings_t1_woman/(couple_earnings_t1)
 
 mi passive: gen hh_earn_type_t1=.
@@ -255,26 +252,8 @@ mi passive: replace hh_earn_type_t1=4 if earnings_t1_man==0 & earnings_t1_woman=
 
 label values hh_earn_type_t1 hh_earn_type
 
-mi estimate: proportion hh_earn_type
-mi estimate: proportion hh_earn_type_t1
+mi estimate: proportion hh_earn_type hh_earn_type_t1
 tab hh_earn_type hh_earn_type_t1, m
-
-* t-2 version
-mi passive: egen couple_earnings_t2 = rowtotal(earnings_t2_man earnings_t2_woman)
-	
-mi passive: gen female_earn_pct_t2 = earnings_t2_woman/(couple_earnings_t2)
-
-mi passive: gen hh_earn_type_t2=.
-mi passive: replace hh_earn_type_t2=1 if female_earn_pct_t2 >=.4000 & female_earn_pct_t2 <=.6000
-mi passive: replace hh_earn_type_t2=2 if female_earn_pct_t2 < .4000 & female_earn_pct_t2 >=0
-mi passive: replace hh_earn_type_t2=3 if female_earn_pct_t2 > .6000 & female_earn_pct_t2 <=1
-mi passive: replace hh_earn_type_t2=4 if earnings_t2_man==0 & earnings_t2_woman==0
-
-label values hh_earn_type_t2 hh_earn_type
-
-mi estimate: proportion hh_earn_type_t2
-
-browse unique_id partner_id survey_yr hh_earn_type couple_earnings earnings_t_man earnings_t_woman hh_earn_type_t1 couple_earnings_t1 earnings_t1_man earnings_t1_woman  hh_earn_type_t2
 
 // hours instead of earnings
 mi passive: egen couple_hours = rowtotal(weekly_hrs_t_man weekly_hrs_t_woman)
@@ -303,24 +282,9 @@ mi passive: replace hh_hours_type_t1=4 if weekly_hrs_t1_man==0 & weekly_hrs_t1_w
 
 label values hh_hours_type_t1 hh_hours_type
 
-mi estimate: proportion hh_hours_type
-mi estimate: proportion hh_hours_type_t1
-
-* t-2 version
-mi passive: egen couple_hours_t2 = rowtotal(weekly_hrs_t2_man weekly_hrs_t2_woman)
-mi passive: gen female_hours_pct_t2 = weekly_hrs_t2_woman/couple_hours_t2
-
-mi passive: gen hh_hours_type_t2=.
-mi passive: replace hh_hours_type_t2=1 if female_hours_pct_t2 >=.4000 & female_hours_pct_t2 <=.6000
-mi passive: replace hh_hours_type_t2=2 if female_hours_pct_t2 <.4000
-mi passive: replace hh_hours_type_t2=3 if female_hours_pct_t2 >.6000 & female_hours_pct_t2!=.
-mi passive: replace hh_hours_type_t2=4 if weekly_hrs_t2_man==0 & weekly_hrs_t2_woman==0
-
-label values hh_hours_type_t2 hh_hours_type
-
-mi estimate: proportion hh_hours_type_t2
-
-browse unique_id partner_id survey_yr hh_hours_type hh_hours_type_t1 hh_hours_type_t2 couple_hours weekly_hrs_t_man weekly_hrs_t_woman  couple_hours_t1 weekly_hrs_t1_man weekly_hrs_t1_woman 
+mi estimate: proportion hh_hours_type hh_hours_type_t1 hh_earn_type_t1
+tab hh_hours_type imputed, col
+tab hh_hours_type_t1 imputed, col
 
 // now based on employment
 * first need to create some variables
@@ -336,12 +300,6 @@ mi passive: replace ft_pt_t1_woman = 1 if weekly_hrs_t1_woman > 0 & weekly_hrs_t
 mi passive: replace ft_pt_t1_woman = 2 if weekly_hrs_t1_woman >=35 & weekly_hrs_t1_woman < 50 // FT: normal
 mi passive: replace ft_pt_t1_woman = 3 if weekly_hrs_t1_woman >=50 & weekly_hrs_t1_woman < 1000 // FT: overwork
 
-mi passive: gen ft_pt_t2_woman = .
-mi passive: replace ft_pt_t2_woman = 0 if weekly_hrs_t2_woman==0 // not working
-mi passive: replace ft_pt_t2_woman = 1 if weekly_hrs_t2_woman > 0 & weekly_hrs_t2_woman < 35 // PT
-mi passive: replace ft_pt_t2_woman = 2 if weekly_hrs_t2_woman >=35 & weekly_hrs_t2_woman < 50 // FT: normal
-mi passive: replace ft_pt_t2_woman = 3 if weekly_hrs_t2_woman >=50 & weekly_hrs_t2_woman < 1000 // FT: overwork
-
 mi passive: gen ft_pt_man = .
 mi passive: replace ft_pt_man = 0 if weekly_hrs_t_man==0 // not working
 mi passive: replace ft_pt_man = 1 if weekly_hrs_t_man > 0 & weekly_hrs_t_man < 35 // PT
@@ -354,14 +312,8 @@ mi passive: replace ft_pt_t1_man = 1 if weekly_hrs_t1_man > 0 & weekly_hrs_t1_ma
 mi passive: replace ft_pt_t1_man = 2 if weekly_hrs_t1_man >=35 & weekly_hrs_t1_man < 50 // FT: normal
 mi passive: replace ft_pt_t1_man = 3 if weekly_hrs_t1_man >=50 & weekly_hrs_t1_man < 1000 // FT: overwork
 
-mi passive: gen ft_pt_t2_man = .
-mi passive: replace ft_pt_t2_man = 0 if weekly_hrs_t2_man==0 // not working
-mi passive: replace ft_pt_t2_man = 1 if weekly_hrs_t2_man > 0 & weekly_hrs_t2_man < 35 // PT
-mi passive: replace ft_pt_t2_man = 2 if weekly_hrs_t2_man >=35 & weekly_hrs_t2_man < 50 // FT: normal
-mi passive: replace ft_pt_t2_man = 3 if weekly_hrs_t2_man >=50 & weekly_hrs_t2_man < 1000 // FT: overwork
-
 label define ft_pt 0 "Not working" 1 "PT" 2 "FT: Normal" 3 "FT: Overwork"
-label values ft_pt_woman ft_pt_t1_woman ft_pt_t2_woman ft_pt_man ft_pt_t1_man ft_pt_t2_man ft_pt
+label values ft_pt_woman ft_pt_t1_woman ft_pt_man ft_pt_t1_man ft_pt
 
 * couple-level version
 mi passive: gen couple_work=.
@@ -432,37 +384,7 @@ mi passive: replace couple_work_ow_t1 = 8 if ft_pt_t1_man == 1 & ft_pt_t1_woman 
 
 label values couple_work_ow_t1 couple_work_ow
 
-* t2 versions
-mi passive: gen couple_work_t2=.
-mi passive: replace couple_work_t2 = 1 if inlist(ft_pt_t2_man,2,3) & ft_pt_t2_woman == 0 // any FT
-mi passive: replace couple_work_t2 = 2 if inlist(ft_pt_t2_man,2,3) & ft_pt_t2_woman == 1
-mi passive: replace couple_work_t2 = 3 if inlist(ft_pt_t2_man,2,3) & inlist(ft_pt_t2_woman,2,3)
-mi passive: replace couple_work_t2 = 4 if ft_pt_t2_man == 0 & inlist(ft_pt_t2_woman,2,3)
-mi passive: replace couple_work_t2 = 4 if ft_pt_t2_man == 1 & inlist(ft_pt_t2_woman,2,3)
-mi passive: replace couple_work_t2 = 5 if ft_pt_t2_man == 1 & ft_pt_t2_woman == 1
-mi passive: replace couple_work_t2 = 5 if ft_pt_t2_man == 0 & ft_pt_t2_woman == 0
-mi passive: replace couple_work_t2 = 5 if ft_pt_t2_man == 0 & ft_pt_t2_woman == 1
-mi passive: replace couple_work_t2 = 5 if ft_pt_t2_man == 1 & ft_pt_t2_woman == 0
-
-label values couple_work_t2 couple_work
-
-mi passive: gen couple_work_ow_t2=.
-mi passive: replace couple_work_ow_t2 = 1 if inlist(ft_pt_t2_man,2,3) & ft_pt_t2_woman == 0
-mi passive: replace couple_work_ow_t2 = 2 if inlist(ft_pt_t2_man,2,3) & ft_pt_t2_woman == 1
-mi passive: replace couple_work_ow_t2 = 3 if ft_pt_t2_man == 2 & ft_pt_t2_woman == 2
-mi passive: replace couple_work_ow_t2 = 4 if ft_pt_t2_man == 3 & ft_pt_t2_woman == 2
-mi passive: replace couple_work_ow_t2 = 5 if ft_pt_t2_man == 2 & ft_pt_t2_woman == 3
-mi passive: replace couple_work_ow_t2 = 6 if ft_pt_t2_man == 3 & ft_pt_t2_woman == 3
-mi passive: replace couple_work_ow_t2 = 7 if ft_pt_t2_man == 0 & inlist(ft_pt_t2_woman,2,3)
-mi passive: replace couple_work_ow_t2 = 7 if ft_pt_t2_man == 1 & inlist(ft_pt_t2_woman,2,3)
-mi passive: replace couple_work_ow_t2 = 8 if ft_pt_t2_man == 1 & ft_pt_t2_woman == 1
-mi passive: replace couple_work_ow_t2 = 8 if ft_pt_t2_man == 0 & ft_pt_t2_woman == 0
-mi passive: replace couple_work_ow_t2 = 8 if ft_pt_t2_man == 0 & ft_pt_t2_woman == 1
-mi passive: replace couple_work_ow_t2 = 8 if ft_pt_t2_man == 1 & ft_pt_t2_woman == 0
-
-label values couple_work_ow_t2 couple_work_ow
-
-mi estimate: proportion couple_work couple_work_t1 couple_work_t2 couple_work_ow couple_work_ow_t1 couple_work_ow_t2
+mi estimate: proportion couple_work couple_work_t1 couple_work_ow couple_work_ow_t1
 
 // housework hours
 mi passive: egen couple_housework = rowtotal (housework_woman housework_man)
@@ -478,7 +400,9 @@ label define housework_bkt 1 "Dual HW" 2 "Female Primary" 3 "Male Primary"
 label values housework_bkt housework_bkt
 
 mi estimate: proportion housework_bkt
-tab survey_yr housework_bkt, m
+tab survey_yr housework_bkt, m 
+tab survey_yr housework_bkt, row
+tab imputed housework_bkt, row // see, I am still worried about this...
 
 *t-1 version
 /*
@@ -500,24 +424,10 @@ label values housework_bkt_t1 housework_bkt
 tab survey_yr housework_bkt_t1, m
 tab survey_yr housework_bkt_t1 if imputed==1, m row
 
-*t-2 version
-mi passive: egen couple_housework_t2 = rowtotal (housework_t2_man housework_t2_woman)
-mi passive: gen wife_housework_pct_t2 = housework_t2_woman / couple_housework_t2
+browse unique_id partner_id survey_yr housework_bkt housework_bkt_t1 housework_woman housework_man  housework_t1_woman housework_t1_man  had_second_birth
 
-mi passive: gen housework_bkt_t2=.
-mi passive: replace housework_bkt_t2=1 if wife_housework_pct_t2 >=.4000 & wife_housework_pct_t2 <=.6000
-mi passive: replace housework_bkt_t2=2 if wife_housework_pct_t2 >.6000 & wife_housework_pct_t2!=.
-mi passive: replace housework_bkt_t2=3 if wife_housework_pct_t2 <.4000
-mi passive: replace housework_bkt_t2=1 if housework_t2_woman==0 & housework_t2_man==0
-
-label values housework_bkt_t2 housework_bkt
-
-browse unique_id partner_id survey_yr housework_bkt housework_bkt_t1 housework_bkt_t2 housework_woman housework_man  housework_t1_woman housework_t1_man  had_second_birth
-
-mi estimate: proportion housework_bkt housework_bkt_t1 housework_bkt_t2
-tab housework_bkt imputed, col 
-tab housework_bkt_t1 imputed, col 
-tab housework_bkt_t2 imputed, col 
+mi estimate: proportion housework_bkt housework_bkt_t1
+tab imputed housework_bkt_t1, row // see, I am still worried about this...
 
 // combined paid and unpaid
 mi passive: gen hours_housework=.
@@ -541,31 +451,20 @@ mi passive: replace hours_housework_t1=5 if hours_housework_t1==. & hh_hours_typ
 
 label values hours_housework_t1 hours_housework 
 
-mi passive: gen hours_housework_t2=.
-mi passive: replace hours_housework_t2=1 if hh_hours_type_t2==1 & housework_bkt_t2==1 // dual both (egal)
-mi passive: replace hours_housework_t2=2 if hh_hours_type_t2==1 & housework_bkt_t2==2 // dual earner, female HM (second shift)
-mi passive: replace hours_housework_t2=3 if hh_hours_type_t2==2 & housework_bkt_t2==2 // male BW, female HM (traditional)
-mi passive: replace hours_housework_t2=4 if hh_hours_type_t2==3 & housework_bkt_t2==3 // female BW, male HM (counter-traditional)
-mi passive: replace hours_housework_t2=5 if hours_housework_t2==. & hh_hours_type_t2!=. & housework_bkt_t2!=. // all others
-
-label values hours_housework_t2 hours_housework 
-
 tab hh_hours_type housework_bkt, m cell nofreq
-mi estimate: proportion hours_housework hours_housework_t1 hours_housework_t2
+mi estimate: proportion hours_housework hours_housework_t1
 
 tab hours_housework imputed, col 
 tab hours_housework_t1 imputed, col 
-tab hours_housework_t2 imputed, col 
 
 // Stata assert command to check new variables created from imputed  
-foreach var in weekly_hrs_t_man weekly_hrs_t_woman weekly_hrs_t1_man weekly_hrs_t1_woman weekly_hrs_t2_man weekly_hrs_t2_woman earnings_t_man earnings_t_woman earnings_t1_man earnings_t1_woman earnings_t2_man earnings_t2_woman housework_man housework_woman housework_t1_man housework_t1_woman housework_t2_man housework_t2_woman religion_man religion_woman religion_t1_man religion_t1_woman religion_t2_man religion_t2_woman educ_man educ_woman educ_t1_man educ_t1_woman educ_t2_man educ_t2_woman raceth_fixed_man raceth_fixed_woman educ_type educ_type_t1 educ_type_t2 couple_earnings  hh_earn_type couple_earnings_t1  hh_earn_type_t1 couple_earnings_t2  hh_earn_type_t2 couple_hours  hh_hours_type couple_hours_t1  hh_hours_type_t1 couple_hours_t2  hh_hours_type_t2 ft_pt_woman ft_pt_t1_woman ft_pt_t2_woman ft_pt_man ft_pt_t1_man ft_pt_t2_man couple_work couple_work_ow couple_work_t1 couple_work_ow_t1 couple_work_t2 couple_work_ow_t2 couple_housework  housework_bkt couple_housework_t1  housework_bkt_t1 couple_housework_t2  housework_bkt_t2 hours_housework hours_housework_t1 hours_housework_t2{  
+foreach var in weekly_hrs_t_man weekly_hrs_t_woman weekly_hrs_t1_man weekly_hrs_t1_woman earnings_t_man earnings_t_woman earnings_t1_man earnings_t1_woman housework_man housework_woman housework_t1_man housework_t1_woman educ_fixed_man educ_fixed_woman raceth_fixed_man raceth_fixed_woman educ_type couple_educ_gp couple_earnings  hh_earn_type couple_earnings_t1  hh_earn_type_t1 couple_hours  hh_hours_type couple_hours_t1 hh_hours_type_t1 ft_pt_woman ft_pt_t1_woman ft_pt_man ft_pt_t1_man couple_work couple_work_ow couple_work_t1 couple_work_ow_t1 couple_housework  housework_bkt couple_housework_t1  housework_bkt_t1  hours_housework hours_housework_t1{  
 	// inspect `var' if _mi_m != 0  
 	assert `var' != . if _mi_m != 0  
 } 
 
 // will have missing if both 0: female_earn_pct female_earn_pct_t1 female_earn_pct_t2 female_hours_pct female_hours_pct_t1 female_hours_pct_t2 wife_housework_pct wife_housework_pct_t1 wife_housework_pct_t2
-// not using
-drop raceth_man raceth_woman 
+
 mi update
 
 // create some other control variables
@@ -575,54 +474,36 @@ tab couple_age_diff, m
 sum couple_age_diff, detail
 
 * Joint religion - from Killewald 2016: (1) both spouses are Catholic; (2) at least one spouse reports no religion; and (3) all other
-label values religion_man religion_t1_man religion_t2_man religion_woman religion_t1_woman religion_t2_woman religion
+* First, I need to figure out religion because could not impute
+* going to use first religion for now
+label values first_religion_man first_religion_woman religion_man religion_t1_man religion_t2_man religion_woman religion_t1_woman religion_t2_woman religion
 
-tab religion_man religion_t1_man
-tab religion_man religion_woman
+tab first_religion_man religion_man // relatively congruent so, even though it can change, doesn't change v. often
+tab first_religion_woman religion_woman 
+tab first_religion_woman first_religion_man
 
-mi passive: gen couple_joint_religion=.
-mi passive: replace couple_joint_religion = 0 if religion_man==0 & religion_woman==0
-mi passive: replace couple_joint_religion = 1 if religion_man==1 & religion_woman==1
-mi passive: replace couple_joint_religion = 2 if inlist(religion_man,3,4,5,6) & inlist(religion_woman,3,4,5,6)
-mi passive: replace couple_joint_religion = 3 if (religion_man==1 & religion_woman!=1 & religion_woman!=.) | (religion_man!=1 & religion_man!=. & religion_woman==1)
-mi passive: replace couple_joint_religion = 4 if ((religion_man==0 & religion_woman!=0 & religion_woman!=.) | (religion_man!=0 & religion_man!=. & religion_woman==0)) & couple_joint_religion==.
-mi passive: replace couple_joint_religion = 5 if inlist(religion_man,2,7,8,9,10) & inlist(religion_woman,2,7,8,9,10)
-mi passive: replace couple_joint_religion = 5 if couple_joint_religion==. & religion_man!=. & religion_woman!=. 
-// tab religion_man religion_woman if couple_joint_religion==.
+gen couple_joint_religion=.
+replace couple_joint_religion = 0 if first_religion_man==0 & first_religion_woman==0
+replace couple_joint_religion = 1 if first_religion_man==1 & first_religion_woman==1
+replace couple_joint_religion = 2 if inlist(first_religion_man,3,4,5,6) & inlist(first_religion_woman,3,4,5,6)
+replace couple_joint_religion = 3 if (first_religion_man==1 & first_religion_woman!=1 & first_religion_woman!=.) | (first_religion_man!=1 & first_religion_man!=. & first_religion_woman==1)
+replace couple_joint_religion = 4 if ((first_religion_man==0 & first_religion_woman!=0 & first_religion_woman!=.) | (first_religion_man!=0 & first_religion_man!=. & first_religion_woman==0)) & couple_joint_religion==.
+replace couple_joint_religion = 5 if inlist(first_religion_man,2,7,8,9,10) & inlist(first_religion_woman,2,7,8,9,10)
+replace couple_joint_religion = 5 if couple_joint_religion==. & first_religion_man!=. & first_religion_woman!=. 
+// tab first_religion_man first_religion_woman if couple_joint_religion==.
 
 label define couple_joint_religion 0 "Both None" 1 "Both Catholic" 2 "Both Protestant" 3 "One Catholic" 4 "One No Religion" 5 "Other"
 label values couple_joint_religion couple_joint_religion
 
-tab religion_man religion_woman, cell nofreq
-mi estimate: proportion couple_joint_religion
-
-mi passive: gen couple_joint_religion_t1=.
-mi passive: replace couple_joint_religion_t1 = 0 if religion_t1_man==0 & religion_t1_woman==0
-mi passive: replace couple_joint_religion_t1 = 1 if religion_t1_man==1 & religion_t1_woman==1
-mi passive: replace couple_joint_religion_t1 = 2 if inlist(religion_t1_man,3,4,5,6) & inlist(religion_t1_woman,3,4,5,6)
-mi passive: replace couple_joint_religion_t1 = 3 if (religion_t1_man==1 & religion_t1_woman!=1 & religion_t1_woman!=.) | (religion_t1_man!=1 & religion_t1_man!=. & religion_t1_woman==1)
-mi passive: replace couple_joint_religion_t1 = 4 if ((religion_t1_man==0 & religion_t1_woman!=0 & religion_t1_woman!=.) | (religion_t1_man!=0 & religion_t1_man!=. & religion_t1_woman==0)) & couple_joint_religion_t1==.
-mi passive: replace couple_joint_religion_t1 = 5 if inlist(religion_t1_man,2,7,8,9,10) & inlist(religion_t1_woman,2,7,8,9,10)
-mi passive: replace couple_joint_religion_t1 = 5 if couple_joint_religion_t1==. & religion_t1_man!=. & religion_t1_woman!=. 
-
-mi passive: gen couple_joint_religion_t2=.
-mi passive: replace couple_joint_religion_t2 = 0 if religion_t2_man==0 & religion_t2_woman==0
-mi passive: replace couple_joint_religion_t2 = 1 if religion_t2_man==1 & religion_t2_woman==1
-mi passive: replace couple_joint_religion_t2 = 2 if inlist(religion_t2_man,3,4,5,6) & inlist(religion_t2_woman,3,4,5,6)
-mi passive: replace couple_joint_religion_t2 = 3 if (religion_t2_man==1 & religion_t2_woman!=1 & religion_t2_woman!=.) | (religion_t2_man!=1 & religion_t2_man!=. & religion_t2_woman==1)
-mi passive: replace couple_joint_religion_t2 = 4 if ((religion_t2_man==0 & religion_t2_woman!=0 & religion_t2_woman!=.) | (religion_t2_man!=0 & religion_t2_man!=. & religion_t2_woman==0)) & couple_joint_religion_t2==.
-mi passive: replace couple_joint_religion_t2 = 5 if inlist(religion_t2_man,2,7,8,9,10) & inlist(religion_t2_woman,2,7,8,9,10)
-mi passive: replace couple_joint_religion_t2 = 5 if couple_joint_religion_t2==. & religion_t2_man!=. & religion_t2_woman!=. 
-
-label values couple_joint_religion_t1 couple_joint_religion_t2 couple_joint_religion
-mi estimate: proportion couple_joint_religion couple_joint_religion_t1 couple_joint_religion_t2
+tab first_religion_man first_religion_woman, cell nofreq
+tab couple_joint_religion, m
 
 * Indicator of whether couple is same race/eth
 tab raceth_fixed_man raceth_fixed_woman, m
 
-mi passive: gen couple_same_race=.
-mi passive: replace couple_same_race = 0 if raceth_fixed_man!=raceth_fixed_woman
-mi passive: replace couple_same_race = 1 if raceth_fixed_man==raceth_fixed_woman & raceth_fixed_man!=. & raceth_fixed_woman!=.
+gen couple_same_race=.
+replace couple_same_race = 0 if raceth_fixed_man!=raceth_fixed_woman
+replace couple_same_race = 1 if raceth_fixed_man==raceth_fixed_woman & raceth_fixed_man!=. & raceth_fixed_woman!=.
 
 // tab raceth_fixed_man raceth_fixed_woman, m cell nofreq
 // mi estimate: proportion couple_same_race
@@ -630,58 +511,67 @@ mi passive: replace couple_same_race = 1 if raceth_fixed_man==raceth_fixed_woman
 * Logged couple earnings
 mi passive: gen couple_earnings_ln = ln(couple_earnings + 1) // add .01 because can't log 0
 mi passive: gen couple_earnings_t1_ln = ln(couple_earnings_t1 + 1)
-mi passive: gen couple_earnings_t2_ln = ln(couple_earnings_t2 + 1)
 
 sum couple_earnings if imputed==1
 sum couple_earnings_t1 if imputed==1
-sum couple_earnings_t2 if imputed==1
-inspect couple_earnings_ln couple_earnings_t1_ln couple_earnings_t2_ln if imputed==1
+inspect couple_earnings_ln couple_earnings_t1_ln if imputed==1
+
+// temp save
+// save "$created_data/PSID_second_birth_sample_cons_RECODED.dta", replace
 
 * Migration status
+* Oh dear, one problem I will run into here is that, because of imputation, there are a lot of missing on STATE - aka, how do I add the state-level characteristics I need?
 sort _mi_m unique_id partner_id survey_yr 
 
-mi passive: egen couple_id = group(unique_id partner_id)
+egen couple_id = group(unique_id partner_id)
 quietly unique state_fips if state_fips!=., by(couple_id) gen(state_change)
 bysort couple_id (state_change): replace state_change=state_change[1]
 tab state_change, m
 
 sort _mi_m unique_id partner_id survey_yr 
-browse unique_id partner_id survey_yr _mi_m state_fips state_change moved MOVED_YEAR_ change_yr entrance_no leave_no moved_sp MOVED_YEAR_sp change_yr_sp
+browse unique_id partner_id survey_yr _mi_m state_fips state_change moved MOVED_YEAR_ _mi_m
+bysort unique_id partner_id (state_fips): replace state_fips = state_fips[1] if state_change==1
+sort _mi_m unique_id partner_id survey_yr 
+// browse unique_id partner_id survey_yr _mi_m state_fips state_change moved MOVED_YEAR_  if state_change!=0
+// inspect state_fips if state_change==0
+// inspect state_fips if state_change > 0
+
+replace state_fips=state_fips[_n-1] if state_fips==. & unique_id==unique_id[_n-1] & partner_id==partner_id[_n-1] & survey_yr==survey_yr[_n-1]+1
+replace state_fips=state_fips[_n+1] if state_fips==. & unique_id==unique_id[_n+1] & partner_id==partner_id[_n+1] & survey_yr==survey_yr[_n+1]-1
 
 gen moved_states = .
-replace moved_states = 0 if state_fips==state_fips[_n-1] & unique_id==unique_id[_n-1] & partner_id==partner_id[_n-1] & wave==wave[_n-1]+1
+replace moved_states = 0 if state_change!=0 & state_fips==state_fips[_n-1] & unique_id==unique_id[_n-1] & partner_id==partner_id[_n-1] & survey_yr==survey_yr[_n-1]+1
 replace moved_states = 0 if state_change==1
-replace moved_states = 1 if state_fips!=state_fips[_n-1] & unique_id==unique_id[_n-1] & partner_id==partner_id[_n-1] & wave==wave[_n-1]+1
+replace moved_states = 1 if state_change!=0 & state_fips!=state_fips[_n-1] & unique_id==unique_id[_n-1] & partner_id==partner_id[_n-1] & survey_yr==survey_yr[_n-1]+1
 replace moved_states = 0 if moved_states==. & state_change!=0 // remaining are first observations
 tab moved_states, m
 
-browse unique_id partner_id survey_yr _mi_m state_fips state_change moved_states rel_start_yr first_survey_yr
 tab state_change moved_states, m
 
 gen moved_states_lag = .
-replace moved_states_lag = 0 if state_fips==state_fips[_n+1] & unique_id==unique_id[_n+1] & partner_id==partner_id[_n+1] & wave==wave[_n+1]-1
+replace moved_states_lag = 0 if state_change!=0 & state_fips==state_fips[_n+1] & unique_id==unique_id[_n+1] & partner_id==partner_id[_n+1] & survey_yr==survey_yr[_n+1]-1
 replace moved_states_lag = 0 if state_change==1
-replace moved_states_lag = 1 if state_fips!=state_fips[_n+1] & unique_id==unique_id[_n+1] & partner_id==partner_id[_n+1] & wave==wave[_n+1]-1
-replace moved_states_lag = 0 if moved_states_lag==. & state_fips==state_fips[_n-1] & unique_id==unique_id[_n-1] & partner_id==partner_id[_n-1] & wave==wave[_n-1]+1 // last survey waves
+replace moved_states_lag = 1 if state_change!=0 & state_fips!=state_fips[_n+1] & unique_id==unique_id[_n+1] & partner_id==partner_id[_n+1] & survey_yr==survey_yr[_n+1]-1
+replace moved_states_lag = 0 if state_change!=0 &  moved_states_lag==. & state_fips==state_fips[_n-1] & unique_id==unique_id[_n-1] & partner_id==partner_id[_n-1] & survey_yr==survey_yr[_n-1]+1 // last survey waves
 replace moved_states_lag = 0 if moved_states_lag==. & state_change!=0 // remaining are last observations
 
 tab moved_states_lag, m
 
-browse unique_id partner_id survey_yr _mi_m state_fips state_change moved_states moved_states_lag rel_start_yr first_survey_yr
 tab state_change moved_states_lag, m
 
 * Figure out if I can fill in type of relationship (married v. cohab)
-sort _mi_m unique_id partner_id survey_yr
 tab marital_status_updated, m
+tab first_marital_status, m
+tab first_marital_status marital_status_updated, m
 tab RELATION_ marital_status_updated, m
 tab RELATION_, m
-tab RELATION_sp, m
-browse unique_id partner_id survey_yr relationship_est in_sample marital_status_updated RELATION_ RELATION_sp mh_yr_married1 mh_yr_married2 mh_yr_married3 coh1_start coh2_start coh3_start rel1_start rel2_start rel3_start
+browse unique_id partner_id survey_yr relationship_est in_sample first_marital_status marital_status_updated RELATION_ mh_yr_married1 mh_yr_married2 mh_yr_married3 coh1_start coh2_start coh3_start rel1_start rel2_start rel3_start
 
-replace marital_status_updated=1 if inlist(marital_status_updated,3,5,6,.) & marital_status_updated[_n-1]==1 & unique_id==unique_id[_n-1] & partner_id==partner_id[_n-1] & wave==wave[_n-1]+1 // last year in survey. if year above was married, then def have to be married
-replace marital_status_updated=1 if inlist(marital_status_updated,3,5,6,.) & (RELATION_==20 | RELATION_sp==20)
-replace marital_status_updated=2 if inlist(marital_status_updated,3,5,6,.) & (RELATION_==22 | RELATION_sp==22)
-replace marital_status_updated=marital_status_updated[_n+1] if inlist(marital_status_updated,3,5,6,.) & unique_id==unique_id[_n+1] & partner_id==partner_id[_n+1] & wave==wave[_n+1]-1 // off year and first year - since have no other information, just assume it is same status as first observed year
+replace marital_status_updated = 1 if inlist(marital_status_updated,3,5,6,.) & marital_status_updated[_n-1]==1 & unique_id==unique_id[_n-1] & partner_id==partner_id[_n-1] & survey_yr==survey_yr[_n-1]+1 // last year in survey. if year above was married, then def have to be married
+replace marital_status_updated = 1 if inlist(marital_status_updated,3,5,6,.) & RELATION_==20  // (RELATION_==20 | RELATION_sp==20)
+replace marital_status_updated = 2 if inlist(marital_status_updated,3,5,6,.) & RELATION_==22 // (RELATION_==22 | RELATION_sp==22)
+replace marital_status_updated = marital_status_updated[_n+1] if inlist(marital_status_updated,3,5,6,.) & unique_id==unique_id[_n+1] & partner_id==partner_id[_n+1] & survey_yr==survey_yr[_n+1]-1 // off year and first year - since have no other information, just assume it is same status as first observed year
+replace marital_status_updated = 1 if first_marital_status==1 // if first status is marriage, has to always be married
 
 forvalues m=1/13{
 	capture replace mh_yr_end`m'=. if mh_yr_end`m'==9998
@@ -696,11 +586,16 @@ forvalues c=1/3{
 	capture replace marital_status_updated=2 if inlist(marital_status_updated,3,5,6,.) & survey_yr == (coh`c'_start-1)
 }
 
-browse unique_id partner_id survey_yr _mi_m marital_status_updated rel_start_yr rel_end_yr mh_yr_married1 mh_yr_end1 mh_yr_married2 mh_yr_end2 mh_yr_married3 mh_yr_end3 coh1_start coh1_end coh2_start coh2_end coh3_start rel1_start rel2_start rel3_start
-gen marital_status_use = marital_status_updated
-replace marital_status_use = 2 if marital_status_updated==. | marital_status_updated==3 |  marital_status_updated==5 // assume cohab since don't meet requirements for marriage
+browse unique_id partner_id survey_yr first_marital_status marital_status_updated rel_start_all rel_end_all mh_yr_married1 mh_yr_end1 mh_yr_married2 mh_yr_end2 mh_yr_married3 mh_yr_end3 coh1_start coh1_end coh2_start coh2_end coh3_start rel1_start rel2_start rel3_start
 
-// get lagged structural measure
+gen marital_status_use = marital_status_updated
+replace marital_status_use = 2 if marital_status_updated==. | inlist(marital_status_updated,3,5,6) // assume cohab since don't meet requirements for marriage
+
+tab marital_status_use, m
+tab first_marital_status marital_status_use, m
+
+/*
+// get lagged structural measure - need to add original structural measure as well. BUT first need to figure out if this is what I want to use
 rename structural_familism structural_familism_t
 
 mi passive: gen year_t1 = survey_yr - 1
@@ -715,293 +610,10 @@ rename structural_familism structural_familism_t1
 
 sort unique_id partner_id survey_yr
 browse unique_id partner_id survey_yr state_fips structural_fam*
+*/
 
 // final update and save
 
 mi update
 
-save "$created_data/PSID_second_birth_sample_rec.dta", replace
-
-********************************************************************************
-**# Want to retain a record of this jic
-********************************************************************************
-/*
-foreach var in educ raceth raceth_fixed religion weekly_hrs_t earnings_t housework housework_t1 weekly_hrs_t1 earnings_t1{
-	gen `var'_man = `var'_focal if SEX==1
-	replace `var'_man = `var'_sp if SEX==2
-	
-	gen `var'_woman = `var'_focal if SEX==2
-	replace `var'_woman = `var'_sp if SEX==1
-}
-
-browse unique_id partner_id survey_yr SEX SEX_sp weekly_hrs_t_woman weekly_hrs_t_man weekly_hrs_t_focal weekly_hrs_t_sp
-
-// couple-level education
-gen college_man = .
-replace college_man = 0 if inlist(educ_man,1,2,3)
-replace college_man = 1 if educ_man==4
-
-gen college_woman = .
-replace college_woman = 0 if inlist(educ_woman,1,2,3)
-replace college_woman = 1 if educ_woman==4
-
-gen couple_educ_gp=.
-replace couple_educ_gp=0 if college_man==0 & college_woman==0
-replace couple_educ_gp=1 if (college_man==1 | college_woman==1)
-
-label define couple_educ 0 "Neither College" 1 "At Least One College"
-label values couple_educ_gp couple_educ
-
-gen educ_type=.
-replace educ_type=1 if educ_man > educ_woman & educ_man!=. & educ_woman!=.
-replace educ_type=2 if educ_man < educ_woman & educ_man!=. & educ_woman!=.
-replace educ_type=3 if educ_man == educ_woman & educ_man!=. & educ_woman!=.
-
-label define educ_type 1 "Hyper" 2 "Hypo" 3 "Homo"
-label values educ_type educ_type
-
-// income and division of paid labor
-egen couple_earnings = rowtotal(earnings_t_man earnings_t_woman)
-browse unique_id partner_id SEX SEX_sp survey_yr couple_earnings earnings_t_man earnings_t_woman earnings_t_focal earnings_t_sp
-	
-gen female_earn_pct = earnings_t_woman/(couple_earnings)
-
-gen hh_earn_type=.
-replace hh_earn_type=1 if female_earn_pct >=.4000 & female_earn_pct <=.6000
-replace hh_earn_type=2 if female_earn_pct < .4000 & female_earn_pct >=0
-replace hh_earn_type=3 if female_earn_pct > .6000 & female_earn_pct <=1
-replace hh_earn_type=4 if earnings_t_man==0 & earnings_t_woman==0
-
-label define hh_earn_type 1 "Dual Earner" 2 "Male BW" 3 "Female BW" 4 "No Earners"
-label values hh_earn_type hh_earn_type
-
-* t-1 version
-egen couple_earnings_t1 = rowtotal(earnings_t1_man earnings_t1_woman)
-	
-gen female_earn_pct_t1 = earnings_t1_woman/(couple_earnings_t1)
-
-gen hh_earn_type_t1=.
-replace hh_earn_type_t1=1 if female_earn_pct_t1 >=.4000 & female_earn_pct_t1 <=.6000
-replace hh_earn_type_t1=2 if female_earn_pct_t1 < .4000 & female_earn_pct_t1 >=0
-replace hh_earn_type_t1=3 if female_earn_pct_t1 > .6000 & female_earn_pct_t1 <=1
-replace hh_earn_type_t1=4 if earnings_t1_man==0 & earnings_t1_woman==0
-
-label values hh_earn_type_t1 hh_earn_type
-tab hh_earn_type_t1, m
-tab hh_earn_type hh_earn_type_t1, m
-
-browse unique_id partner_id survey_yr hh_earn_type couple_earnings earnings_t_man earnings_t_woman hh_earn_type_t1 couple_earnings_t1 earnings_t1_man earnings_t1_woman  
-
-// hours instead of earnings
-egen couple_hours = rowtotal(weekly_hrs_t_man weekly_hrs_t_woman)
-gen female_hours_pct = weekly_hrs_t_woman/couple_hours
-
-gen hh_hours_type=.
-replace hh_hours_type=1 if female_hours_pct >=.4000 & female_hours_pct <=.6000
-replace hh_hours_type=2 if female_hours_pct <.4000
-replace hh_hours_type=3 if female_hours_pct >.6000 & female_hours_pct!=.
-replace hh_hours_type=4 if weekly_hrs_t_man==0 & weekly_hrs_t_woman==0
-
-label define hh_hours_type 1 "Dual Earner" 2 "Male BW" 3 "Female BW" 4 "No Earners"
-label values hh_hours_type hh_hours_type
-
-	// browse unique_id partner_id survey_yr hh_hours_type weekly_hrs_t_man weekly_hrs_t_woman
-
-* t-1 version
-egen couple_hours_t1 = rowtotal(weekly_hrs_t1_man weekly_hrs_t1_woman)
-gen female_hours_pct_t1 = weekly_hrs_t1_woman/couple_hours_t1
-
-gen hh_hours_type_t1=.
-replace hh_hours_type_t1=1 if female_hours_pct_t1 >=.4000 & female_hours_pct_t1 <=.6000
-replace hh_hours_type_t1=2 if female_hours_pct_t1 <.4000
-replace hh_hours_type_t1=3 if female_hours_pct_t1 >.6000 & female_hours_pct_t1!=.
-replace hh_hours_type_t1=4 if weekly_hrs_t1_man==0 & weekly_hrs_t1_woman==0
-
-label values hh_hours_type_t1 hh_hours_type
-tab hh_hours_type , m
-tab hh_hours_type_t1, m
-
-browse unique_id partner_id survey_yr hh_hours_type couple_hours weekly_hrs_t_man weekly_hrs_t_woman hh_hours_type_t1 couple_hours_t1 weekly_hrs_t1_man weekly_hrs_t1_woman  
-
-// now based on employment
-* first need to create some variables
-gen ft_pt_woman = .
-replace ft_pt_woman = 0 if weekly_hrs_t_woman==0 // not working
-replace ft_pt_woman = 1 if weekly_hrs_t_woman > 0 & weekly_hrs_t_woman < 35 // PT
-replace ft_pt_woman = 2 if weekly_hrs_t_woman >=35 & weekly_hrs_t_woman < 50 // FT: normal
-replace ft_pt_woman = 3 if weekly_hrs_t_woman >=50 & weekly_hrs_t_woman < 150 // FT: overwork
-
-gen ft_pt_t1_woman = .
-replace ft_pt_t1_woman = 0 if weekly_hrs_t1_woman==0 // not working
-replace ft_pt_t1_woman = 1 if weekly_hrs_t1_woman > 0 & weekly_hrs_t1_woman < 35 // PT
-replace ft_pt_t1_woman = 2 if weekly_hrs_t1_woman >=35 & weekly_hrs_t1_woman < 50 // FT: normal
-replace ft_pt_t1_woman = 3 if weekly_hrs_t1_woman >=50 & weekly_hrs_t1_woman < 150 // FT: overwork
-
-gen ft_pt_man = .
-replace ft_pt_man = 0 if weekly_hrs_t_man==0 // not working
-replace ft_pt_man = 1 if weekly_hrs_t_man > 0 & weekly_hrs_t_man < 35 // PT
-replace ft_pt_man = 2 if weekly_hrs_t_man >=35 & weekly_hrs_t_man < 50 // FT: normal
-replace ft_pt_man = 3 if weekly_hrs_t_man >=50 & weekly_hrs_t_man < 150 // FT: overwork
-
-gen ft_pt_t1_man = .
-replace ft_pt_t1_man = 0 if weekly_hrs_t1_man==0 // not working
-replace ft_pt_t1_man = 1 if weekly_hrs_t1_man > 0 & weekly_hrs_t1_man < 35 // PT
-replace ft_pt_t1_man = 2 if weekly_hrs_t1_man >=35 & weekly_hrs_t1_man < 50 // FT: normal
-replace ft_pt_t1_man = 3 if weekly_hrs_t1_man >=50 & weekly_hrs_t1_man < 150 // FT: overwork
-
-label define ft_pt 0 "Not working" 1 "PT" 2 "FT: Normal" 3 "FT: Overwork"
-label values ft_pt_woman ft_pt_t1_woman ft_pt_man ft_pt_t1_man ft_pt
-
-* couple-level version
-tab ft_pt_woman ft_pt_man
-
-gen couple_work=.
-replace couple_work = 1 if inlist(ft_pt_man,2,3) & ft_pt_woman == 0 // any FT
-replace couple_work = 2 if inlist(ft_pt_man,2,3) & ft_pt_woman == 1
-replace couple_work = 3 if inlist(ft_pt_man,2,3) & inlist(ft_pt_woman,2,3)
-replace couple_work = 4 if ft_pt_man == 0 & inlist(ft_pt_woman,2,3)
-replace couple_work = 4 if ft_pt_man == 1 & inlist(ft_pt_woman,2,3)
-replace couple_work = 5 if ft_pt_man == 1 & ft_pt_woman == 1
-replace couple_work = 6 if ft_pt_man == 0 & ft_pt_woman == 0
-replace couple_work = 6 if ft_pt_man == 0 & ft_pt_woman == 1
-replace couple_work = 6 if ft_pt_man == 1 & ft_pt_woman == 0
-
-label define couple_work 1 "male bw" 2 "1.5 male bw" 3 "dual FT" 4 "female bw" 5 "dual PT" 6 "under work"
-label values couple_work couple_work
-
-tab couple_work, m
-
-* with overwork
-gen couple_work_ow=.
-replace couple_work_ow = 1 if inlist(ft_pt_man,2,3) & ft_pt_woman == 0
-replace couple_work_ow = 2 if inlist(ft_pt_man,2,3) & ft_pt_woman == 1
-replace couple_work_ow = 3 if ft_pt_man == 2 & ft_pt_woman == 2
-replace couple_work_ow = 4 if ft_pt_man == 3 & ft_pt_woman == 2
-replace couple_work_ow = 5 if ft_pt_man == 2 & ft_pt_woman == 3
-replace couple_work_ow = 6 if ft_pt_man == 3 & ft_pt_woman == 3
-replace couple_work_ow = 7 if ft_pt_man == 0 & inlist(ft_pt_woman,2,3)
-replace couple_work_ow = 7 if ft_pt_man == 1 & inlist(ft_pt_woman,2,3)
-replace couple_work_ow = 8 if ft_pt_man == 1 & ft_pt_woman == 1
-replace couple_work_ow = 8 if ft_pt_man == 0 & ft_pt_woman == 0
-replace couple_work_ow = 8 if ft_pt_man == 0 & ft_pt_woman == 1
-replace couple_work_ow = 8 if ft_pt_man == 1 & ft_pt_woman == 0
-
-label define couple_work_ow 1 "male bw" 2 "1.5 male bw" 3 "dual FT: no OW" 4 "dual FT: his OW" 5 "dual FT: her OW" 6 "dual FT: both OW" /// 
-7 "female bw" 8 "under work"
-label values couple_work_ow couple_work_ow
-
-tab couple_work_ow, m
-
-browse unique_id partner_id survey_yr couple_work couple_work_ow weekly_hrs_t_man weekly_hrs_t_woman 
-
-* t1 versions
-gen couple_work_t1=.
-replace couple_work_t1 = 1 if inlist(ft_pt_t1_man,2,3) & ft_pt_t1_woman == 0 // any FT
-replace couple_work_t1 = 2 if inlist(ft_pt_t1_man,2,3) & ft_pt_t1_woman == 1
-replace couple_work_t1 = 3 if inlist(ft_pt_t1_man,2,3) & inlist(ft_pt_t1_woman,2,3)
-replace couple_work_t1 = 4 if ft_pt_t1_man == 0 & inlist(ft_pt_t1_woman,2,3)
-replace couple_work_t1 = 4 if ft_pt_t1_man == 1 & inlist(ft_pt_t1_woman,2,3)
-replace couple_work_t1 = 5 if ft_pt_t1_man == 1 & ft_pt_t1_woman == 1
-replace couple_work_t1 = 6 if ft_pt_t1_man == 0 & ft_pt_t1_woman == 0
-replace couple_work_t1 = 6 if ft_pt_t1_man == 0 & ft_pt_t1_woman == 1
-replace couple_work_t1 = 6 if ft_pt_t1_man == 1 & ft_pt_t1_woman == 0
-
-label values couple_work_t1 couple_work
-
-gen couple_work_ow_t1=.
-replace couple_work_ow_t1 = 1 if inlist(ft_pt_t1_man,2,3) & ft_pt_t1_woman == 0
-replace couple_work_ow_t1 = 2 if inlist(ft_pt_t1_man,2,3) & ft_pt_t1_woman == 1
-replace couple_work_ow_t1 = 3 if ft_pt_t1_man == 2 & ft_pt_t1_woman == 2
-replace couple_work_ow_t1 = 4 if ft_pt_t1_man == 3 & ft_pt_t1_woman == 2
-replace couple_work_ow_t1 = 5 if ft_pt_t1_man == 2 & ft_pt_t1_woman == 3
-replace couple_work_ow_t1 = 6 if ft_pt_t1_man == 3 & ft_pt_t1_woman == 3
-replace couple_work_ow_t1 = 7 if ft_pt_t1_man == 0 & inlist(ft_pt_t1_woman,2,3)
-replace couple_work_ow_t1 = 7 if ft_pt_t1_man == 1 & inlist(ft_pt_t1_woman,2,3)
-replace couple_work_ow_t1 = 8 if ft_pt_t1_man == 1 & ft_pt_t1_woman == 1
-replace couple_work_ow_t1 = 8 if ft_pt_t1_man == 0 & ft_pt_t1_woman == 0
-replace couple_work_ow_t1 = 8 if ft_pt_t1_man == 0 & ft_pt_t1_woman == 1
-replace couple_work_ow_t1 = 8 if ft_pt_t1_man == 1 & ft_pt_t1_woman == 0
-
-label values couple_work_ow_t1 couple_work_ow
-
-tab couple_work_t1, m
-tab couple_work, m
-tab couple_work_ow_t1, m
-tab couple_work_ow, m
-
-// housework hours
-egen couple_housework = rowtotal (housework_woman housework_man)
-
-gen wife_housework_pct = housework_woman / couple_housework
-
-gen housework_bkt=.
-replace housework_bkt=1 if wife_housework_pct >=.4000 & wife_housework_pct <=.6000
-replace housework_bkt=2 if wife_housework_pct >.6000 & wife_housework_pct!=.
-replace housework_bkt=3 if wife_housework_pct <.4000
-replace housework_bkt=4 if housework_woman==0 & housework_man==0
-
-label define housework_bkt 1 "Dual HW" 2 "Female Primary" 3 "Male Primary" 4 "NA"
-label values housework_bkt housework_bkt
-
-tab housework_bkt, m
-tab survey_yr housework_bkt, m
-
-/*
-sort unique_id partner_id survey_yr
-gen housework_bkt_t1 = .
-replace housework_bkt_t1 = housework_bkt[_n-1] if unique_id==unique_id[_n-1] & partner_id==partner_id[_n-1] & wave==wave[_n-1]+1 // I could probably get a lag from the individual level data? so the first year won't be missing by defaul
-*/
-
-egen couple_housework_t1 = rowtotal (housework_t1_man housework_t1_woman)
-
-gen wife_housework_pct_t1 = housework_t1_woman / couple_housework_t1
-
-gen housework_bkt_t1=.
-replace housework_bkt_t1=1 if wife_housework_pct_t1 >=.4000 & wife_housework_pct_t1 <=.6000
-replace housework_bkt_t1=2 if wife_housework_pct_t1 >.6000 & wife_housework_pct_t1!=.
-replace housework_bkt_t1=3 if wife_housework_pct_t1 <.4000
-replace housework_bkt_t1=4 if housework_t1_woman==0 & housework_t1_man==0
-
-label values housework_bkt_t1 housework_bkt
-
-tab survey_yr housework_bkt_t1, m
-label values housework_bkt_t1 housework_bkt
-
-browse unique_id partner_id survey_yr housework_bkt housework_bkt_t1
-
-// combined paid and unpaid
-gen hours_housework=.
-replace hours_housework=1 if hh_hours_type==1 & housework_bkt==1 // dual both (egal)
-replace hours_housework=2 if hh_hours_type==1 & housework_bkt==2 // dual earner, female HM (second shift)
-replace hours_housework=3 if hh_hours_type==2 & housework_bkt==2 // male BW, female HM (traditional)
-replace hours_housework=4 if hh_hours_type==3 & housework_bkt==3 // female BW, male HM (counter-traditional)
-replace hours_housework=5 if hours_housework==. & hh_hours_type!=. & housework_bkt!=. // all others
-
-label define hours_housework 1 "Egal" 2 "Second Shift" 3 "Traditional" 4 "Counter Traditional" 5 "All others"
-label values hours_housework hours_housework 
-
-tab survey_yr hours_housework, m // going to be missing whenever housework is missing, which is often
-tab hh_hours_type housework_bkt, m cell nofreq
-tab hours_housework, m
-
-gen hours_housework_t1=.
-replace hours_housework_t1=1 if hh_hours_type_t1==1 & housework_bkt_t1==1 // dual both (egal)
-replace hours_housework_t1=2 if hh_hours_type_t1==1 & housework_bkt_t1==2 // dual earner, female HM (second shift)
-replace hours_housework_t1=3 if hh_hours_type_t1==2 & housework_bkt_t1==2 // male BW, female HM (traditional)
-replace hours_housework_t1=4 if hh_hours_type_t1==3 & housework_bkt_t1==3 // female BW, male HM (counter-traditional)
-replace hours_housework_t1=5 if hours_housework_t1==. & hh_hours_type_t1!=. & housework_bkt_t1!=. // all others
-
-label values hours_housework_t1 hours_housework 
-
-// get lagged structural measure
-rename structural_familism structural_familism_t
-
-gen year_t1 = survey_yr - 1
-merge m:1 year_t1 state_fips using "$states/structural_familism.dta", keepusing(structural_familism)
-rename structural_familism structural_familism_t1
-drop if _merge==2
-drop _merge
-
-sort unique_id partner_id survey_yr
-browse unique_id partner_id survey_yr state_fips structural_fam*
-*/
+save "$created_data/PSID_second_birth_sample_cons_RECODED.dta", replace

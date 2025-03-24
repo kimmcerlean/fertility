@@ -479,7 +479,7 @@ sum couple_age_diff, detail
 
 * Joint religion - from Killewald 2016: (1) both spouses are Catholic; (2) at least one spouse reports no religion; and (3) all other
 * First, I need to figure out religion because could not impute
-* going to use first religionf for now
+* going to use first religion for now
 label values first_religion_man first_religion_woman religion_man religion_t1_man religion_t2_man religion_woman religion_t1_woman religion_t2_woman religion
 
 tab first_religion_man religion_man // relatively congruent so, even though it can change, doesn't change v. often
