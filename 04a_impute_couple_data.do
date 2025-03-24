@@ -57,6 +57,8 @@ tabstat weekly_hrs_t_focal earnings_t_focal, by(employed_focal)
 inspect weekly_hrs_t_focal earnings_t_focal if employed_focal==0
 inspect weekly_hrs_t_focal earnings_t_focal if employed_focal==1
 
+// 3/24/25: need to get rid of outliers and the 998 / 999 / 112 BEFORE imputing (will update this post ATUS) - think causing some problems
+
 ********************************************************************************
 * Reshape wide for imputation
 ********************************************************************************
@@ -101,6 +103,9 @@ egen last_religion_focal = rowlast(religion_focal*)
 egen first_religion_focal = rowfirst(religion_focal*)
 label values last_religion_focal first_religion_focal religion
 browse unique_id partner_id first_religion_focal last_religion_focal max_dur religion_focal*
+
+egen first_marital_status = rowfirst(marital_status_updated*)
+label values first_marital_status marital_status_updated
 
 forvalues d=0/15{
 	gen religion_imp_focal`d'= religion_focal`d'
@@ -331,7 +336,7 @@ mi impute chained
 #delimit cr
 
 // I'm an idiot and somehow the rel dur variables got lost?
-merge 1:1 unique_id partner_id using "$temp/PSID_couples_wide_toimpute.dta", keepusing(min_dur max_dur total_rel_dur)
+merge 1:1 unique_id partner_id using "$temp/PSID_couples_wide_toimpute.dta", keepusing(min_dur max_dur total_rel_dur first_religion_focal)
 drop if _merge==2
 drop _merge
 

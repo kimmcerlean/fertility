@@ -6,7 +6,7 @@
 * File: create_subsamples
 ********************************************************************************
 ********************************************************************************
-ssc inst unique, replace // for HPC
+// ssc inst unique, replace // for HPC
 
 ********************************************************************************
 * Description
@@ -27,6 +27,8 @@ ssc inst unique, replace // for HPC
 // use "created data/PSID_couples_matched_allbirths.dta", clear // this is for HPC
 // use "$created_data/PSID_matched_mi3_allbirths.dta", clear // to test on computer
 use "$created_data_large/PSID_couples_matched_allbirths.dta", clear // real data
+
+// label values first_marital_status first_marital_status_sp marital_status_updated
 
 // browse unique_id partner_id sort_id _mi_m FAMILY_INTERVIEW_NUM_ main_fam_id relationship_duration survey_yr rel_start_all min_dur max_dur if sort_id==.
 // browse unique_id partner_id sort_id _mi_m FAMILY_INTERVIEW_NUM_ main_fam_id relationship_duration survey_yr rel_start_all min_dur max_dur if main_fam_id==5

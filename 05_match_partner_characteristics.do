@@ -33,7 +33,7 @@ foreach var in COR_IMM_WT CORE_WEIGHT CROSS_SECTION_FAM_WT CROSS_SECTION_WT LONG
 }
 
 // just keep necessary variables
-local partnervars_fixed "SEX SAMPLE SAMPLE_STATUS_TYPE sample_type  has_psid_gene first_survey_yr last_survey_yr NUM_BIRTHS all_births_shared any_births_pre_rel any_shared_births birth_yr cluster FIRST_BIRTH_YR first_educ_focal last_race_focal raceth_fixed_focal IN_UNIT permanent_attrit"
+local partnervars_fixed "SEX SAMPLE SAMPLE_STATUS_TYPE sample_type  has_psid_gene first_survey_yr last_survey_yr NUM_BIRTHS all_births_shared any_births_pre_rel any_shared_births birth_yr cluster FIRST_BIRTH_YR first_educ_focal last_race_focal raceth_fixed_focal IN_UNIT permanent_attrit first_religion_focal first_marital_status"
 
 local partnervars_time "weekly_hrs_t_focal weekly_hrs_t1_focal weekly_hrs_t2_focal earnings_t_focal earnings_t1_focal earnings_t2_focal housework_focal housework_t1_focal housework_t2_focal age_focal shared_birth_in_yr religion_focal religion_t1_focal religion_t2_focal partnered raceth_focal college_focal educ_focal educ_t1_focal educ_t2_focal second_birth_sample_flag second_birth_flag_cons first_birth_sample_flag  any_psid_births_t_focal any_psid_births_t_hh any_psid_births_t1_focal any_psid_births_t1_hh NUM_CHILDREN AGE_YOUNG_CHILD children marital_status_updated relationship_est in_sample COR_IMM_WT CORE_WEIGHT CROSS_SECTION_FAM_WT CROSS_SECTION_WT LONG_WT imputed"
 
@@ -93,7 +93,7 @@ sum weekly_hrs_t_focal weekly_hrs_t1_focal weekly_hrs_t2_focal earnings_t_focal 
 sum weekly_hrs_t1_focal, detail
 sum earnings_t_focal, detail
 
-foreach var in weekly_hrs_t_focal weekly_hrs_t1_focal weekly_hrs_t2_focal earnings_t_focal earnings_t1_focal earnings_t2_focal  weekly_hrs_t_focal_sp weekly_hrs_t1_focal_sp weekly_hrs_t2_focal_sp earnings_t_focal_sp earnings_t1_focal_sp earnings_t2_focal_sp{
+foreach var in weekly_hrs_t_focal weekly_hrs_t1_focal weekly_hrs_t2_focal earnings_t_focal earnings_t1_focal earnings_t2_focal  weekly_hrs_t_focal_sp weekly_hrs_t1_focal_sp weekly_hrs_t2_focal_sp earnings_t_focal_sp earnings_t1_focal_sp earnings_t2_focal_sp housework_focal housework_t1_focal housework_t2_focal{
 	sum `var', detail
 	replace `var' = `r(p95)' if `var' > `r(p95)' & `var'!=.
 	replace `var' = `r(p5)' if `var' < `r(p5)' & `var'!=.
