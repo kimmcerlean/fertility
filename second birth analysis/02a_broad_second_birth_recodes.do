@@ -3,14 +3,14 @@
 * Project: Policy and Fertility
 * Owner: Kimberly McErlean
 * Started: October 2024
-* File: cons_first_birth_recodes
+* File: second_birth_sample
 ********************************************************************************
 ********************************************************************************
 
 ********************************************************************************
 * Description
 ********************************************************************************
-* This files takes the first birth sample (conservative wrt premarital births
+* This files takes the second birth sample, adds on partner characteristics
 * and creates necessary couple-level variables and final sample restrictions
 * Also adds in birth DVs (right now time constant, need to be time-varying)
 
@@ -22,7 +22,7 @@
 * e. age restrictions (with matched partner data) - do here
 */
 
-use "$created_data/PSID_first_birth_sample_cons.dta", clear
+use "$created_data/PSID_second_birth_sample_cons.dta", clear
 
 ********************************************************************************
 * First, look at imputation descriptives that I couldn't really do in other files
@@ -55,40 +55,35 @@ twoway (histogram earnings_t_focal_sp if imputed==0 & earnings_t_focal_sp >=-100
 
 
 ********************************************************************************
-* add in birth indicators - aka create our DV and final sample clean up
+* add in birth indicators - aka create our DV
 ********************************************************************************
-unique unique_id partner_id, by(joint_first_birth)
+replace shared_second_birth=0 if shared_second_birth==.
+tab shared_second_birth, m
+tab shared_second_birth_yr shared_second_birth, m
+tab shared_second_birth joint_second_birth_opt2, m
 
-tab cah_child_birth_yr1_ref joint_first_birth, m col // so there should not be birth years here for 0s? about 22% have? so some is bc AFTER relationship ended
-tab cah_child_birth_yr1_ref joint_first_birth if num_births_pre_ref==0 & num_births_pre_sp==0, m 
-tab cah_child_birth_yr1_sp joint_first_birth, m // col nofreq
-tab shared_birth1_refyr joint_first_birth, m col nofreq // so there are less shared, but should there be 0?
-tab shared_birth1_spyr joint_first_birth, m col nofreq
+unique unique_id partner_id, by(shared_second_birth)
+
+browse unique_id partner_id survey_yr rel_start_all rel_end_all any_births_pre_rel shared_second_birth shared_second_birth_yr first_survey_yr last_survey_yr first_survey_yr_sp last_survey_yr_sp cah_child_birth_yr2_ref cah_child_birth_yr2_sp shared_birth2_refyr shared_birth2_spyr num_births_pre_ref num_births_pre_sp
+
 
 foreach var in any_births_pre_rel num_births_pre_ref num_births_pre_indv_ref num_births_pre_sp num_births_pre_indv_sp{
 	tab `var', m
 }
-// so the ref and spouse births pre rel at INDIVIDUAL level + the joint indicator are all 0
-// so I think these are pre rel births that are shared? so I do need to remove?
+// it's okay that these have values here
 
-tab num_births_pre_ref num_births_pre_indv_ref , m // these are all 0, which is good
-tab num_births_pre_sp  num_births_pre_indv_sp , m
-tab any_births_pre_rel num_births_pre_ref, m
-tab any_births_pre_rel num_births_pre_sp, m
+gen had_second_birth=0
+replace had_second_birth=1 if survey_yr==shared_second_birth_yr
+tab had_second_birth, m
+tab shared_second_birth had_second_birth, m
 
-gen had_first_birth=0
-replace had_first_birth=1 if survey_yr==joint_first_birth_yr
-tab had_first_birth, m
-tab joint_first_birth had_first_birth, m
+browse unique_id partner_id survey_yr rel_start_all rel_end_all had_second_birth shared_second_birth shared_second_birth_yr first_survey_yr last_survey_yr first_survey_yr_sp last_survey_yr_sp cah_child_birth_yr2_ref cah_child_birth_yr2_sp shared_birth2_refyr shared_birth2_spyr num_births_pre_ref num_births_pre_sp
 
-browse unique_id partner_id relationship_duration min_dur max_dur survey_yr rel_start_all rel_end_all any_births_pre_rel joint_first_birth joint_first_birth_yr had_first_birth joint_first_birth_rel joint_first_birth_timing first_survey_yr last_survey_yr first_survey_yr_sp last_survey_yr_sp cah_child_birth_yr1_ref cah_child_birth_yr1_sp shared_birth1_refyr shared_birth1_spyr num_births_pre_ref num_births_pre_sp
+gen time_since_first_birth= survey_yr - shared_first_birth_yr
+tab time_since_first_birth, m
+tab time_since_first_birth had_second_birth, m row
 
-// make sure of two things:
-	// a. I am not following people after their relationship end year / last survey year (if censored) OR capturing births after this. okay, so some peopled do have a birth after relationship ends, but I don't have those years here, so it's fine
-	// b. also possible the first birth year is not observed? I think? so I removed years after, but what prior years so I remove? do I remove years before rel_start? are those here? I don't know...
-	// okay i think this and c. are related. there are people with a first birth that is not observed? so use first survey yr relative to first birth? but not all of them have joint_first_birth=1 flag
-	// c. something that is happening that I need to figure out, I think people with a joint first birth that is PRIOR to relationship start are somehow here?
-	// d. I am not capturing people with a first birth somehow that is not joint, but is in the confines of this observed relationship?
+browse unique_id partner_id survey_yr rel_start_all rel_end_all shared_first_birth_yr time_since_first_birth had_second_birth shared_second_birth shared_second_birth_yr
 
 ********************************************************************************
 * more sample restrictions (namely, age of partner and same-gender couples)
@@ -103,15 +98,15 @@ replace age_man = age_focal_sp if SEX==2
 gen age_woman = age_focal if SEX==2
 replace age_woman = age_focal_sp if SEX==1
 
-// browse unique_id partner_id survey_yr SEX SEX_sp age_man age_woman age_focal age_focal_sp
+// browse unique_id partner_id survey_yr SEX SEX_sp age_man age_woman age_focal age_sp
 
 keep if (age_man>=20 & age_man<=60) & (age_woman>=20 & age_woman<50) // Comolli using the PSID does 16-49 for women and < 60 for men, but I want a higher lower limit for measurement of education? In general, age limit for women tends to range from 44-49, will use the max of 49 for now. lower limit of 20 seems justifiable based on prior research (and could prob go even older)
 
 unique unique_id partner_id
-unique unique_id partner_id if joint_first_birth==1
+unique unique_id partner_id if shared_second_birth==1
 
-unique unique_id partner_id if rel_start_all >= 2005 // focus on post-recession period? Not doing this for now... close to halves the sample
-unique unique_id partner_id if joint_first_birth==1 & rel_start_all >= 2005 // focus on post-recession period?
+unique unique_id partner_id if rel_start_all >= 2005 // focus on post-recession period?
+unique unique_id partner_id if shared_second_birth==1 & rel_start_all >= 2005 // focus on post-recession period?
 
 mi update 
 
@@ -184,11 +179,11 @@ foreach var in weekly_hrs_t1 earnings_t1 housework_t1 first_marital_status{
 	mi passive: replace `var'_woman = `var'_sp if SEX==1
 }
 
-
 ********************************************************************************
 **# Now make couple-level IVs and control variables
 * Making t and t-1 versions of all variables
 ********************************************************************************
+
 // couple-level education
 * First, need to create fixed versions
 tab educ_man, m
@@ -287,6 +282,8 @@ mi passive: replace hh_hours_type_t1=4 if weekly_hrs_t1_man==0 & weekly_hrs_t1_w
 label values hh_hours_type_t1 hh_hours_type
 
 mi estimate: proportion hh_hours_type hh_hours_type_t1 hh_earn_type_t1
+tab hh_hours_type imputed, col
+tab hh_hours_type_t1 imputed, col
 
 // now based on employment
 * first need to create some variables
@@ -426,7 +423,7 @@ label values housework_bkt_t1 housework_bkt
 tab survey_yr housework_bkt_t1, m
 tab survey_yr housework_bkt_t1 if imputed==1, m row
 
-browse unique_id partner_id survey_yr housework_bkt housework_bkt_t1 housework_woman housework_man  housework_t1_woman housework_t1_man  had_first_birth
+browse unique_id partner_id survey_yr housework_bkt housework_bkt_t1 housework_woman housework_man  housework_t1_woman housework_t1_man  had_second_birth
 
 mi estimate: proportion housework_bkt housework_bkt_t1
 tab imputed housework_bkt_t1, row // see, I am still worried about this...
@@ -466,7 +463,7 @@ foreach var in weekly_hrs_t_man weekly_hrs_t_woman weekly_hrs_t1_man weekly_hrs_
 } 
 
 // will have missing if both 0: female_earn_pct female_earn_pct_t1 female_earn_pct_t2 female_hours_pct female_hours_pct_t1 female_hours_pct_t2 wife_housework_pct wife_housework_pct_t1 wife_housework_pct_t2
-// not using
+
 mi update
 
 // create some other control variables
@@ -474,8 +471,6 @@ mi update
 mi passive: gen couple_age_diff = age_man - age_woman
 tab couple_age_diff, m
 sum couple_age_diff, detail
-
-// temp save 1
 
 * Joint religion - from Killewald 2016: (1) both spouses are Catholic; (2) at least one spouse reports no religion; and (3) all other
 * First, I need to figure out religion because could not impute
@@ -520,7 +515,10 @@ sum couple_earnings if imputed==1
 sum couple_earnings_t1 if imputed==1
 inspect couple_earnings_ln couple_earnings_t1_ln if imputed==1
 
-* Migration status.
+// temp save - 3/26/25
+// save "$created_data/PSID_second_birth_sample_broad_RECODED.dta", replace
+
+* Migration status
 * Oh dear, one problem I will run into here is that, because of imputation, there are a lot of missing on STATE - aka, how do I add the state-level characteristics I need?
 sort _mi_m unique_id partner_id survey_yr 
 
@@ -607,7 +605,7 @@ rename structural_familism structural_familism_t
 
 mi passive: gen year_t1 = survey_yr - 1
 mi merge m:1 year_t1 state_fips using "$states/structural_familism.dta",keep(match master) // gen(howmatch) keepusing(structural_familism)
-drop if howmatch==2
+capture drop if howmatch==2
 
 drop f1 state_name concat disapproval genderroles_egal working_mom_egal preschool_egal fepresch fechld fefam month_rent annual_rent month_own annual_own annual_housing hhincome rent_afford own_afford house_afford min_wage min_above_fed unemployment unemployment_comp right2work gdp gender_lfp_gap_nocoll gender_lfp_gap_coll paid_leave cc_cost cc_pct_income educ_spend cc_subsidies senate_dems house_dems gender_discrimin_ban equalpay contraceptive_coverage abortion_protected unemployment_percap prek_enrolled prek_enrolled_public state earn_ratio lfp_ratio pov_ratio pctfemaleleg dv_guns gender_mood child_pov welfare_all welfare_cash_asst ccdf_direct ccdf_total ccdf_per_cap population cc_eligible cc_pct_served cc_served cc_served_percap educ_spend_percap gini earn_ratio_z pctmaleleg no_paid_leave no_dv_gun_law senate_rep house_rep gender_mood_neg earn_ratio_st lfp_ratio_st pov_ratio_st pctfemaleleg_st senate_dems_st house_dems_st dv_guns_st gender_mood_st pctmaleleg_st no_paid_leave_st no_dv_gun_law_st senate_rep_st house_rep_st gender_mood_neg_st structural_sexism maternal_employment parent_earn_ratio gdp_per_cap unemployment_neg cc_pct_income_neg earn_ratio_neg parent_earn_ratio_neg min_below_fed child_pov_neg welfare_neg welfare_cash_neg gdp_neg gdp_percap_neg unemployment_neg_st min_above_fed_st paid_leave_st cc_pct_income_neg_st earn_ratio_neg_st cc_subsidies_st unemployment_st cc_pct_income_st min_below_fed_st child_pov_st child_pov_neg_st min_wage_st welfare_all_st welfare_cash_asst_st welfare_neg_st welfare_cash_neg_st ccdf_direct_st ccdf_per_cap_st cc_served_percap_st cc_pct_served_st educ_spend_st educ_spend_percap_st parent_earn_ratio_st parent_earn_ratio_neg_st maternal_employment_st gdp_st gdp_neg_st gdp_per_cap_st gdp_percap_neg_st gini_st gender_discrimin_ban_st equalpay_st contraceptive_coverage_st abortion_protected_st unemployment_percap_st prek_enrolled_st prek_enrolled_public_st
 
@@ -623,4 +621,4 @@ browse unique_id partner_id survey_yr state_fips structural_fam*
 
 mi update
 
-save "$created_data/PSID_first_birth_sample_cons_RECODED.dta", replace
+save "$created_data/PSID_second_birth_sample_broad_RECODED.dta", replace

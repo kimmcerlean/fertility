@@ -20,9 +20,10 @@
 * c. remove observations after relevant birth (e.g. after first birth for that sample) - did in prev file
 * d. deduplicate (so just one observation per year) - did in prev file
 * e. age restrictions (with matched partner data) - do here
+* f. in next step, don't forget to CONTROL FOR premarital births in broad samples (don't need to do that in conservative samples...)
 */
 
-use "$created_data/PSID_first_birth_sample_cons.dta", clear
+use "$created_data/PSID_first_birth_sample_broad.dta", clear
 
 ********************************************************************************
 * First, look at imputation descriptives that I couldn't really do in other files
@@ -57,31 +58,15 @@ twoway (histogram earnings_t_focal_sp if imputed==0 & earnings_t_focal_sp >=-100
 ********************************************************************************
 * add in birth indicators - aka create our DV and final sample clean up
 ********************************************************************************
-unique unique_id partner_id, by(joint_first_birth)
-
-tab cah_child_birth_yr1_ref joint_first_birth, m col // so there should not be birth years here for 0s? about 22% have? so some is bc AFTER relationship ended
-tab cah_child_birth_yr1_ref joint_first_birth if num_births_pre_ref==0 & num_births_pre_sp==0, m 
-tab cah_child_birth_yr1_sp joint_first_birth, m // col nofreq
-tab shared_birth1_refyr joint_first_birth, m col nofreq // so there are less shared, but should there be 0?
-tab shared_birth1_spyr joint_first_birth, m col nofreq
-
-foreach var in any_births_pre_rel num_births_pre_ref num_births_pre_indv_ref num_births_pre_sp num_births_pre_indv_sp{
-	tab `var', m
-}
-// so the ref and spouse births pre rel at INDIVIDUAL level + the joint indicator are all 0
-// so I think these are pre rel births that are shared? so I do need to remove?
-
-tab num_births_pre_ref num_births_pre_indv_ref , m // these are all 0, which is good
-tab num_births_pre_sp  num_births_pre_indv_sp , m
-tab any_births_pre_rel num_births_pre_ref, m
-tab any_births_pre_rel num_births_pre_sp, m
+unique unique_id partner_id, by(shared_first_birth)
+tab shared_first_birth_yr shared_first_birth, m
 
 gen had_first_birth=0
-replace had_first_birth=1 if survey_yr==joint_first_birth_yr
+replace had_first_birth=1 if survey_yr==shared_first_birth_yr
 tab had_first_birth, m
-tab joint_first_birth had_first_birth, m
+tab shared_first_birth had_first_birth, m
 
-browse unique_id partner_id relationship_duration min_dur max_dur survey_yr rel_start_all rel_end_all any_births_pre_rel joint_first_birth joint_first_birth_yr had_first_birth joint_first_birth_rel joint_first_birth_timing first_survey_yr last_survey_yr first_survey_yr_sp last_survey_yr_sp cah_child_birth_yr1_ref cah_child_birth_yr1_sp shared_birth1_refyr shared_birth1_spyr num_births_pre_ref num_births_pre_sp
+browse unique_id partner_id relationship_duration min_dur max_dur survey_yr rel_start_all rel_end_all had_first_birth shared_first_birth shared_first_birth_yr  first_survey_yr last_survey_yr first_survey_yr_sp last_survey_yr_sp cah_child_birth_yr1_ref cah_child_birth_yr1_sp shared_birth1_refyr shared_birth1_spyr num_births_pre_ref num_births_pre_sp
 
 // make sure of two things:
 	// a. I am not following people after their relationship end year / last survey year (if censored) OR capturing births after this. okay, so some peopled do have a birth after relationship ends, but I don't have those years here, so it's fine
@@ -475,8 +460,6 @@ mi passive: gen couple_age_diff = age_man - age_woman
 tab couple_age_diff, m
 sum couple_age_diff, detail
 
-// temp save 1
-
 * Joint religion - from Killewald 2016: (1) both spouses are Catholic; (2) at least one spouse reports no religion; and (3) all other
 * First, I need to figure out religion because could not impute
 * going to use first religion for now
@@ -519,6 +502,8 @@ mi passive: gen couple_earnings_t1_ln = ln(couple_earnings_t1 + 1)
 sum couple_earnings if imputed==1
 sum couple_earnings_t1 if imputed==1
 inspect couple_earnings_ln couple_earnings_t1_ln if imputed==1
+
+// temp save - stopped here pre RC28 on 3/24
 
 * Migration status.
 * Oh dear, one problem I will run into here is that, because of imputation, there are a lot of missing on STATE - aka, how do I add the state-level characteristics I need?
@@ -596,10 +581,11 @@ forvalues c=1/3{
 browse unique_id partner_id survey_yr first_marital_status marital_status_updated rel_start_all rel_end_all mh_yr_married1 mh_yr_end1 mh_yr_married2 mh_yr_end2 mh_yr_married3 mh_yr_end3 coh1_start coh1_end coh2_start coh2_end coh3_start rel1_start rel2_start rel3_start
 
 gen marital_status_use = marital_status_updated
-replace marital_status_use = 2 if marital_status_updated==. | inlist(marital_status_updated,3,5,6) // assume cohab since don't meet requirements for marriage
+replace marital_status_use = 2 if marital_status_updated==. | inlist(marital_status_updated,3,4,5,6) // assume cohab since don't meet requirements for marriage
 
 tab marital_status_use, m
 tab first_marital_status marital_status_use, m
+label values marital_status_use marital_status_updated
 
 /*
 // get lagged structural measure - need to add original structural measure as well. BUT first need to figure out if this is what I want to use
@@ -623,4 +609,4 @@ browse unique_id partner_id survey_yr state_fips structural_fam*
 
 mi update
 
-save "$created_data/PSID_first_birth_sample_cons_RECODED.dta", replace
+save "$created_data/PSID_first_birth_sample_broad_RECODED.dta", replace

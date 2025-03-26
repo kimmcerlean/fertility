@@ -559,6 +559,12 @@ tab moved_states_lag, m
 
 tab state_change moved_states_lag, m
 
+gen moved_last_two=.
+replace moved_last_two = 0 if moved_states==0 & moved_states_lag==0
+replace moved_last_two = 1 if moved_states==1 | moved_states_lag==1
+tab moved_last_two, m
+tab state_change moved_last_two, m
+
 * Figure out if I can fill in type of relationship (married v. cohab)
 tab marital_status_updated, m
 tab first_marital_status, m
