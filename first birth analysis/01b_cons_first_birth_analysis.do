@@ -12,23 +12,24 @@
 ********************************************************************************
 * This files takes the first birth sample and runs analysis
 
-// created in file 5a
-use "$created_data/PSID_first_birth_sample_rec.dta", clear
+// created in file 1a
+use "$created_data/PSID_first_birth_sample_cons_RECODED.dta", clear
 
-// browse unique_id partner_id survey_yr rel_start_yr marital_status_updated relationship_duration had_first_birth joint_first_birth joint_first_birth_yr
+browse unique_id partner_id survey_yr rel_start_all marital_status_use relationship_duration had_first_birth joint_first_birth joint_first_birth_yr
 
 tab relationship_duration had_first_birth, row m // should relationship duration be my discrete time indicator?
 tab age_woman had_first_birth, row m  // or age?? I guess both should be in the models?
 
 gen age_woman_sq = age_woman * age_woman
 
-********************************************************************************
-********************************************************************************
-********************************************************************************
-**# Imputed data
-********************************************************************************
-********************************************************************************
-********************************************************************************
+label values raceth_fixed_woman raceth_fixed_man raceth
+label values marital_status_use marital_status_updated
+
+mi passive: gen hh_hours_type_t1_x = hh_hours_type_t1
+mi passive: replace hh_hours_type_t1_x = 1 if hh_hours_type_t1_x==4
+
+mi estimate: proportion hh_hours_type_t1 hh_hours_type_t1_x
+
 /* how to get AMEs and Predicted Probabilities:
 https://www.statalist.org/forums/forum/general-stata-discussion/general/1354295-mimrgns-and-emargins-average-marginal-effects-the-same-as-coefficient-values
 https://www.stata.com/meeting/germany16/slides/de16_klein.pdf
@@ -37,474 +38,328 @@ https://www.statalist.org/forums/forum/general-stata-discussion/general/307763-m
 */
 
 ********************************************************************************
-* Main effects
 ********************************************************************************
-**T-1
+********************************************************************************
+**# Main effects (T1)
+********************************************************************************
+********************************************************************************
+********************************************************************************
+
 // with controls - per that Rindfuss article, do I need to interact age with these variables? bc some variables affect timing of births more than birth itself (and might have negative impact on timing but positive on completed fertility)
-local controls "age_woman age_woman_sq couple_age_diff i.educ_type_t1 i.couple_joint_religion_t1 i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t1_ln i.moved_states_lag"
-
-logistic had_first_birth i.relationship_duration i.hh_hours_type_t1 `controls'
-mimrgns hh_hours_type_t1
-mimrgns, dydx(hh_hours_type_t1)
-
-logistic had_first_birth i.relationship_duration i.hh_earn_type_t1 `controls'
-mimrgns hh_earn_type_t1
-mimrgns, dydx(hh_earn_type_t1)
-
-logistic had_first_birth i.relationship_duration i.housework_bkt_t1 `controls'
-mimrgns housework_bkt_t1
-mimrgns, dydx(housework_bkt_t1)
-
-logistic had_first_birth i.relationship_duration i.hours_housework_t1 `controls'
-mimrgns hours_housework_t1
-mimrgns, dydx(hours_housework_t1)
-
-logistic had_first_birth i.relationship_duration structural_familism_t1 `controls' if state_fips!=11
-mimrgns, at(structural_familism_t1=(-5(1)10))
-marginsplot
-mimrgns, dydx(structural_familism_t1)
-
-**T-2
-
-********************************************************************************
-* Key interactions with structural support measure
-********************************************************************************
-**T-1
-
-// Paid labor
-
-* interaction with hours
-local controls "age_woman age_woman_sq couple_age_diff i.educ_type_t1 i.couple_joint_religion_t1 i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t1_ln i.moved_states_lag"
-
-mi estimate: logistic had_first_birth i.relationship_duration c.structural_familism_t1 i.hh_hours_type_t1 c.structural_familism_t1#i.hh_hours_type_t1 `controls' if state_fips!=11 // hh_hours_type_t1 < 4
-sum structural_familism_t1, detail
-mimrgns, dydx(hh_hours_type_t1) at(structural_familism_t1=(`r(min)'(1)`r(max)'))  predict(pr) cmdmargins dots
-marginsplot, xtitle("Structural Support for Working Families: percentiles") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Male BW" 2 "Female BW") rows(1)) yscale(range(-.1 .1)) ylabel(-.1(.05).1, angle(0)) plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12")) // xlabel(-3.12 "5th" -0.64 "25th" 1.27 "50th" 3.57 "75th" 12.48 "95th") 
-
-* interaction with earnings
-local controls "age_woman age_woman_sq couple_age_diff i.educ_type_t1 i.couple_joint_religion_t1 i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t1_ln i.moved_states_lag"
-
-mi estimate: logistic had_first_birth i.relationship_duration c.structural_familism_t1 i.hh_earn_type_t1 c.structural_familism_t1#i.hh_earn_type_t1 `controls' if state_fips!=11 // hh_earn_type_t1 < 4
-sum structural_familism_t1, detail
-mimrgns, dydx(hh_earn_type_t1) at(structural_familism_t1=(`r(min)'(1)`r(max)'))  predict(pr) cmdmargins dots
-marginsplot, xtitle("Structural Support for Working Families: percentiles") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Male BW" 2 "Female BW") rows(1)) yscale(range(-.1 .1)) ylabel(-.1(.05).1, angle(0)) plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12")) // xlabel(-3.12 "5th" -0.64 "25th" 1.27 "50th" 3.57 "75th" 12.48 "95th") 
-
-// Unpaid labor
-local controls "age_woman age_woman_sq couple_age_diff i.educ_type_t1 i.couple_joint_religion_t1 i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t1_ln i.moved_states_lag"
-
-mi estimate: logistic had_first_birth i.relationship_duration c.structural_familism_t1 i.housework_bkt_t1 c.structural_familism_t1#i.housework_bkt_t1 `controls' if state_fips!=11 // housework_bkt_t1 < 4 
-sum structural_familism_t1, detail
-mimrgns, dydx(housework_bkt_t1) at(structural_familism_t1=(`r(min)'(1)`r(max)'))  predict(pr) cmdmargins dots
-marginsplot, xtitle("Structural Support for Working Families: percentiles") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Female HW" 2 "Male HW") rows(1)) // yscale(range(-.1 .1)) ylabel(-.1(.05).1, angle(0)) plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12")) // xlabel(-3.12 "5th" -0.64 "25th" 1.27 "50th" 3.57 "75th" 12.48 "95th") 
-
-// Both
-local controls "age_woman age_woman_sq couple_age_diff i.educ_type_t1 i.couple_joint_religion_t1 i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t1_ln i.moved_states_lag"
-
-mi estimate: logistic had_first_birth i.relationship_duration c.structural_familism_t1 i.hours_housework_t1 c.structural_familism_t1#i.hours_housework_t1 `controls' if state_fips!=11
-sum structural_familism_t1, detail
-margins, dydx(hours_housework_t1) at(structural_familism_t1=(`r(min)'(1)`r(max)'))
-marginsplot, xtitle("Structural Support for Working Families: percentiles") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Second Shift" 2 "Traditional" 3 "Counter" 4 "Other") rows(1)) // yscale(range(-.1 .1)) ylabel(-.1(.05).1, angle(0)) plot3opts(lcolor("gs6") mcolor("gs6")) ci3opts(color("gs6")) plot4opts(lcolor("gs12") mcolor("gs12")) ci4opts(color("gs12"))
-
-**T-2
-
-********************************************************************************
-********************************************************************************
-********************************************************************************
-**# Non imputed data
-********************************************************************************
-********************************************************************************
-********************************************************************************
-mi extract 0, clear
-
-// crude way of getting structural variable t2. when I revisit full code, I will integrate this (and t1) better
-browse unique_id partner_id survey_yr state_fips structural_familism_t structural_familism_t1
-gen structural_familism_t2 = structural_familism_t1[_n-1] if unique_id==unique_id[_n-1] & partner_id==partner_id[_n-1] & wave==wave[_n-1]+1
-
-// temp try alt way of doing housework
-egen housework_t1_man_imp = rowmean(housework_man housework_t2_man)
-replace housework_t1_man_imp = housework_t1_man if housework_t1_man!=.
-
-egen housework_t1_woman_imp = rowmean(housework_woman housework_t2_woman)
-replace housework_t1_woman_imp = housework_t1_woman if housework_t1_woman!=.
-browse unique_id partner_id survey_yr housework_man housework_t1_man housework_t2_man housework_t1_man_imp housework_woman housework_t1_woman housework_t2_woman housework_t1_woman_imp
-
-inspect housework_t1_woman housework_t1_woman_imp housework_t1_man housework_t1_man_imp
-
-// 
-egen couple_housework_t1_imp = rowtotal (housework_t1_woman_imp housework_t1_man_imp)
-gen wife_housework_pct_t1_imp = housework_t1_woman_imp / couple_housework_t1_imp
-
-gen housework_bkt_t1_imp=.
-replace housework_bkt_t1_imp=1 if wife_housework_pct_t1_imp >=.4000 & wife_housework_pct_t1_imp <=.6000
-replace housework_bkt_t1_imp=2 if wife_housework_pct_t1_imp >.6000 & wife_housework_pct_t1_imp!=.
-replace housework_bkt_t1_imp=3 if wife_housework_pct_t1_imp <.4000
-replace housework_bkt_t1_imp=3 if housework_t1_woman_imp==0 & housework_t1_man_imp==0
-
-label values housework_bkt_t1_imp housework_bkt
-tab housework_bkt_t1, m
-tab housework_bkt_t1_imp, m
-tab housework_bkt_t1_imp housework_bkt_t1, m
-
-gen housework_bkt_t2_imp = housework_bkt_t1_imp[_n-1] if unique_id==unique_id[_n-1] & partner_id==partner_id[_n-1] & wave==wave[_n-1]+1
-replace housework_bkt_t2_imp = housework_bkt_t2 if housework_bkt_t2!=.
-label values housework_bkt_t2_imp housework_bkt
-
-browse unique_id partner_id survey_yr housework_bkt housework_bkt_t1_imp housework_bkt_t2 housework_bkt_t2_imp
-
-// now create new hours_housework measure
-gen hours_housework_t1_imp=.
-replace hours_housework_t1_imp=1 if hh_hours_type_t1==1 & housework_bkt_t1_imp==1 // dual both (egal)
-replace hours_housework_t1_imp=2 if hh_hours_type_t1==1 & housework_bkt_t1_imp==2 // dual earner, female HM (second shift)
-replace hours_housework_t1_imp=3 if hh_hours_type_t1==2 & housework_bkt_t1_imp==2 // male BW, female HM (traditional)
-replace hours_housework_t1_imp=4 if hh_hours_type_t1==3 & housework_bkt_t1_imp==3 // female BW, male HM (counter-traditional)
-replace hours_housework_t1_imp=5 if hours_housework_t1_imp==. & hh_hours_type_t1!=. & housework_bkt_t1_imp!=. // all others
-
-label values hours_housework_t1_imp hours_housework 
-tab hours_housework_t1_imp
-tab hours_housework_t1
-
-gen hours_housework_t2_imp=.
-replace hours_housework_t2_imp=1 if hh_hours_type_t2==1 & housework_bkt_t2_imp==1 // dual both (egal)
-replace hours_housework_t2_imp=2 if hh_hours_type_t2==1 & housework_bkt_t2_imp==2 // dual earner, female HM (second shift)
-replace hours_housework_t2_imp=3 if hh_hours_type_t2==2 & housework_bkt_t2_imp==2 // male BW, female HM (traditional)
-replace hours_housework_t2_imp=4 if hh_hours_type_t2==3 & housework_bkt_t2_imp==3 // female BW, male HM (counter-traditional)
-replace hours_housework_t2_imp=5 if hours_housework_t2_imp==. & hh_hours_type_t2!=. & housework_bkt_t2_imp!=. // all others
-
-label values hours_housework_t2_imp hours_housework 
-tab hours_housework_t2_imp
-tab hours_housework_t2
-
-// prelim models
-logistic had_first_birth i.relationship_duration i.educ_woman // i.marital_status_updated
-margins educ_woman
-
-logistic had_first_birth i.age_woman i.educ_woman // i.marital_status_updated
-margins educ_woman
-
-logistic had_first_birth i.educ_woman
-margins educ_woman
-
-// which paid labor AND which measure of time?
-tab hh_earn_type had_first_birth, row m
-tab hh_earn_type_t1 had_first_birth, row m
-tab hh_hours_type had_first_birth, row m
-tab hh_hours_type_t1 had_first_birth, row m
-tab housework_bkt had_first_birth, row m
-tab housework_bkt_t1 had_first_birth, row m
-
-logistic had_first_birth i.relationship_duration i.hh_earn_type_t1
-margins hh_earn_type_t1
-
-logistic had_first_birth i.age_woman i.hh_earn_type_t1
-margins hh_earn_type_t1
-
-logistic had_first_birth i.relationship_duration i.hh_hours_type_t1
-margins hh_hours_type_t1
-
-logistic had_first_birth i.age_woman i.hh_hours_type_t1
-margins hh_hours_type_t1
-
-logistic had_first_birth i.relationship_duration i.age_woman i.hh_hours_type_t1
-margins hh_hours_type_t1
-
-logistic had_first_birth i.relationship_duration i.age_woman  ib2.couple_work_t1
-margins couple_work_t1
-
-logistic had_first_birth i.relationship_duration i.age_woman  i.housework_bkt_t1
-margins housework_bkt_t1
-
-logistic had_first_birth i.relationship_duration i.age_woman  i.hours_housework_t1
-margins hours_housework_t1
-
-logistic had_first_birth i.relationship_duration i.age_woman structural_familism_t1 if state_fips!=11  // this is negative even when lagged
-margins, at(structural_familism_t1=(-5(1)10))
-marginsplot
-
-********************************************************************************
-* Main effects
-********************************************************************************
-* t-1
-// adding controls - per that Rindfuss article, do I need to interact age with these variables? bc some variables affect timing of births more than birth itself (and might have negative impact on timing but positive on completed fertility)
-// local controls "i.age_woman i.age_man i.religion_woman i.religion_man i.educ_man i.educ_woman i.raceth_fixed_man i.raceth_fixed_woman"
-local controls "age_woman age_woman_sq couple_age_diff i.educ_type_t1 i.couple_joint_religion_t1 i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t1_ln i.moved_states_lag"
-
-logistic had_first_birth i.relationship_duration i.hh_hours_type_t1 `controls'
-margins hh_hours_type_t1
-margins, dydx(hh_hours_type_t1)
-
-logistic had_first_birth i.relationship_duration i.hh_earn_type_t1 `controls'
-margins hh_earn_type_t1
-margins, dydx(hh_earn_type_t1)
-
-logistic had_first_birth i.relationship_duration i.housework_bkt_t1 `controls'
-margins housework_bkt_t1
-margins, dydx(housework_bkt_t1)
-
-logistic had_first_birth i.relationship_duration i.housework_bkt_t1_imp `controls'
-margins housework_bkt_t1_imp
-margins, dydx(housework_bkt_t1_imp)
-
-logistic had_first_birth i.relationship_duration i.hours_housework_t1 `controls'
-margins hours_housework_t1
-margins, dydx(hours_housework_t1)
-
-logistic had_first_birth i.relationship_duration i.hours_housework_t1_imp `controls'
-margins hours_housework_t1_imp
-margins, dydx(hours_housework_t1_imp)
-
-logistic had_first_birth i.relationship_duration structural_familism_t1 `controls' if state_fips!=11 
-margins, at(structural_familism_t1=(-5(1)10))
-marginsplot
-margins, dydx(structural_familism_t1)
-
-logistic had_first_birth i.relationship_duration i.couple_work_t1 `controls'
-margins couple_work_t1
-margins, dydx(couple_work_t1)
-
-logistic had_first_birth i.relationship_duration i.couple_work_ow_t1 `controls'
-margins couple_work_ow_t1
-margins, dydx(couple_work_ow_t1)
-
-* t-2
-local controls "age_woman age_woman_sq couple_age_diff i.educ_type_t2 i.couple_joint_religion_t2 i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t2_ln i.moved_states_lag"
-
-logistic had_first_birth i.relationship_duration i.hh_hours_type_t2 `controls'
-margins hh_hours_type_t2
-margins, dydx(hh_hours_type_t2)
-
-logistic had_first_birth i.relationship_duration i.hh_earn_type_t2 `controls'
-margins hh_earn_type_t2
-margins, dydx(hh_earn_type_t2)
-
-logistic had_first_birth i.relationship_duration i.housework_bkt_t2 `controls'
-margins housework_bkt_t2
-margins, dydx(housework_bkt_t2)
-
-logistic had_first_birth i.relationship_duration i.housework_bkt_t2_imp `controls'
-margins housework_bkt_t2_imp
-margins, dydx(housework_bkt_t2_imp)
-
-logistic had_first_birth i.relationship_duration i.hours_housework_t2 `controls'
-margins hours_housework_t2
-margins, dydx(hours_housework_t2)
-
-logistic had_first_birth i.relationship_duration i.hours_housework_t2_imp `controls'
-margins hours_housework_t2_imp
-margins, dydx(hours_housework_t2_imp)
-
-logistic had_first_birth i.relationship_duration structural_familism_t2 `controls' if state_fips!=11 
-margins, at(structural_familism_t2=(-5(1)10))
-marginsplot
-margins, dydx(structural_familism_t2)
-
-logistic had_first_birth i.relationship_duration i.couple_work_t2 `controls'
-margins couple_work_t2
-margins, dydx(couple_work_t2)
-
-logistic had_first_birth i.relationship_duration i.couple_work_ow_t2 `controls'
-margins couple_work_ow_t2
-margins, dydx(couple_work_ow_t2)
-
-
-/* alt time period
-local controls "i.age_woman i.age_man i.religion_woman i.religion_man i.educ_man i.educ_woman i.raceth_fixed_man i.raceth_fixed_woman"
-
-logistic had_first_birth i.relationship_duration i.hh_hours_type_t1 `controls' if rel_start_yr>=2005
-margins hh_hours_type_t1
-margins, dydx(hh_hours_type_t1)
-
-logistic had_first_birth i.relationship_duration i.hh_earn_type_t1 `controls' if rel_start_yr>=2005
-margins hh_earn_type_t1
-margins, dydx(hh_earn_type_t1)
-
-logistic had_first_birth i.relationship_duration i.housework_bkt_t1 `controls' if rel_start_yr>=2005 // causing problems when trying to estimate with controls. think there are prob too many
-margins housework_bkt_t1
-margins, dydx(housework_bkt_t1)
-
-logistic had_first_birth i.relationship_duration i.hours_housework_t1 `controls' if rel_start_yr>=2005  // causing problems when trying to estimate with controls. think there are prob too many
-margins hours_housework_t1
-margins, dydx(hours_housework_t1)
-
-logistic had_first_birth i.relationship_duration structural_familism_t1 `controls' if state_fips!=11 & rel_start_yr>=2005
-margins, at(structural_familism_t1=(-5(1)10))
-marginsplot
-margins, dydx(structural_familism_t1)
-*/
-
-********************************************************************************
-* Key interactions with structural support measure
-********************************************************************************
-**T-1
-local controls "age_woman age_woman_sq couple_age_diff i.educ_type_t1 i.couple_joint_religion_t1 i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t1_ln i.moved_states_lag"
-
-// Paid labor
-* interaction with hours
-logistic had_first_birth i.relationship_duration c.structural_familism_t1 i.hh_hours_type_t1 c.structural_familism_t1#i.hh_hours_type_t1 `controls' if hh_hours_type_t1 < 4 & state_fips!=11 
-outreg2 using "$results/first_birth_no_imp.xls", sideway stats(coef pval) label ctitle(Hours T1) dec(2) eform alpha(0.001, 0.01, 0.05, 0.10) symbol(***, **, *, +) replace
-
-sum structural_familism_t1, detail
-margins, dydx(hh_hours_type_t1) at(structural_familism_t1=(`r(min)'(1)`r(max)'))
-marginsplot, xtitle("Structural Support for Working Families") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Male BW" 2 "Female BW") rows(1)) plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12")) ci1opts(lwidth(*1.5)) // xlabel(-3.12 "5th" -0.64 "25th" 1.27 "50th" 3.57 "75th" 12.48 "95th")
-
-* interaction with earnings
-logistic had_first_birth i.relationship_duration c.structural_familism_t1 i.hh_earn_type_t1 c.structural_familism_t1#i.hh_earn_type_t1 `controls' if hh_earn_type_t1 < 4 & state_fips!=11 
-outreg2 using "$results/first_birth_no_imp.xls", sideway stats(coef pval) label ctitle(Earnings T1) dec(2) eform alpha(0.001, 0.01, 0.05, 0.10) symbol(***, **, *, +) append
-
-sum structural_familism_t1, detail
-margins, dydx(hh_earn_type_t1) at(structural_familism_t1=(`r(min)'(1)`r(max)'))
-marginsplot, xtitle("Structural Support for Working Families") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Male BW" 2 "Female BW") rows(1)) plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12")) ci1opts(lwidth(*1.5)) // xlabel(-3.12 "5th" -0.64 "25th" 1.27 "50th" 3.57 "75th" 12.48 "95th")
-
-// Unpaid labor
-// logistic had_first_birth i.relationship_duration c.structural_familism_t1 i.housework_bkt_t1 c.structural_familism_t1#i.housework_bkt_t1 `controls' if housework_bkt_t1 < 4 & state_fips!=11 
-// sum structural_familism_t1, detail
-// margins, dydx(housework_bkt_t1) at(structural_familism_t1=(`r(min)'(1)`r(max)'))
-// marginsplot, xtitle("Structural Support for Working Families: percentiles") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Female HW" 2 "Male HW") rows(1)) plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12"))  // yscale(range(-.1 .1)) ylabel(-.1(.05).1, angle(0)) // xlabel(-3.12 "5th" -0.64 "25th" 1.27 "50th" 3.57 "75th" 12.48 "95th") 
-
-// Unpaid labor - estimated
-logistic had_first_birth i.relationship_duration c.structural_familism_t1 i.housework_bkt_t1_imp c.structural_familism_t1#i.housework_bkt_t1_imp `controls' if housework_bkt_t1_imp < 4 & state_fips!=11 
-outreg2 using "$results/first_birth_no_imp.xls", sideway stats(coef pval) label ctitle(HW T1) dec(2) eform alpha(0.001, 0.01, 0.05, 0.10) symbol(***, **, *, +) append
-
-sum structural_familism_t1, detail
-margins, dydx(housework_bkt_t1_imp) at(structural_familism_t1=(`r(min)'(1)`r(max)'))
-marginsplot, xtitle("Structural Support for Working Families") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Female HW" 2 "Male HW") rows(1)) plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12")) ci1opts(lwidth(*1.5))
-
-// Both
-// logistic had_first_birth i.relationship_duration c.structural_familism_t1 i.hours_housework_t1 c.structural_familism_t1#i.hours_housework_t1 `controls' if state_fips!=11 
-// sum structural_familism_t1, detail
-// margins, dydx(hours_housework_t1) at(structural_familism_t1=(`r(min)'(1)`r(max)'))
-// marginsplot, xtitle("Structural Support for Working Families: percentiles") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Second Shift" 2 "Traditional" 3 "Counter" 4 "Other") rows(1)) plot3opts(lcolor("gs13") mcolor("gs13")) ci3opts(color("gs13")) plot4opts(lcolor("gs8") mcolor("gs8")) ci4opts(color("gs8"))
-
-// Both - estimated
-local controls "age_woman age_woman_sq couple_age_diff i.educ_type_t1 i.couple_joint_religion_t1 i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t1_ln i.moved_states_lag"
-
-logistic had_first_birth i.relationship_duration c.structural_familism_t1 i.hours_housework_t1_imp c.structural_familism_t1#i.hours_housework_t1_imp `controls' if state_fips!=11 
-outreg2 using "$results/first_birth_no_imp.xls", sideway stats(coef pval) label ctitle(Combined T1) dec(2) eform alpha(0.001, 0.01, 0.05, 0.10) symbol(***, **, *, +) append
-
-sum structural_familism_t1, detail
-margins, dydx(hours_housework_t1_imp) at(structural_familism_t1=(`r(min)'(1)`r(max)'))
-marginsplot, xtitle("Structural Support for Working Families") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Second Shift" 2 "Traditional" 3 "Counter" 4 "Other") rows(1)) plot1opts(lcolor("pink") mcolor("pink")) ci1opts(color("pink")) plot2opts(lcolor("midblue") mcolor("midblue")) ci2opts(color("midblue")) plot3opts(lcolor("gs13") mcolor("none")) ci3opts(color("gs13")) plot4opts(lcolor("gs8") mcolor("none")) ci4opts(color("gs8"))
-
-**T-2
-local controls "age_woman age_woman_sq couple_age_diff i.educ_type_t2 i.couple_joint_religion_t2 i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t2_ln i.moved_states_lag"
-
-// Paid labor
-* interaction with hours
-logistic had_first_birth i.relationship_duration c.structural_familism_t2 i.hh_hours_type_t2 c.structural_familism_t2#i.hh_hours_type_t2 `controls' if hh_hours_type_t2 < 4 & state_fips!=11 
-outreg2 using "$results/first_birth_no_imp.xls", sideway stats(coef pval) label ctitle(Hours T2) dec(2) eform alpha(0.001, 0.01, 0.05, 0.10) symbol(***, **, *, +) append
-
-sum structural_familism_t2, detail
-margins, dydx(hh_hours_type_t2) at(structural_familism_t2=(`r(min)'(1)`r(max)'))
-marginsplot, xtitle("Structural Support for Working Families") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Male BW" 2 "Female BW") rows(1)) plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12")) ci1opts(lwidth(*1.5)) // xlabel(-3.12 "5th" -0.64 "25th" 1.27 "50th" 3.57 "75th" 12.48 "95th") 
-
-* interaction with earnings
-logistic had_first_birth i.relationship_duration c.structural_familism_t2 i.hh_earn_type_t2 c.structural_familism_t2#i.hh_earn_type_t2 `controls' if hh_earn_type_t2 < 4 & state_fips!=11 
-outreg2 using "$results/first_birth_no_imp.xls", sideway stats(coef pval) label ctitle(Earnings T2) dec(2) eform alpha(0.001, 0.01, 0.05, 0.10) symbol(***, **, *, +) append
-
-sum structural_familism_t2, detail
-margins, dydx(hh_earn_type_t2) at(structural_familism_t2=(`r(min)'(1)`r(max)'))
-marginsplot, xtitle("Structural Support for Working Families") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Male BW" 2 "Female BW") rows(1)) plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12")) ci1opts(lwidth(*1.5)) // xlabel(-3.12 "5th" -0.64 "25th" 1.27 "50th" 3.57 "75th" 12.48 "95th") 
-
-// Unpaid labor
-// logistic had_first_birth i.relationship_duration c.structural_familism_t2 i.housework_bkt_t2 c.structural_familism_t2#i.housework_bkt_t2 `controls' if housework_bkt_t2 < 4 & state_fips!=11 
-// sum structural_familism_t2, detail
-// margins, dydx(housework_bkt_t2) at(structural_familism_t2=(`r(min)'(1)`r(max)'))
-// marginsplot, xtitle("Structural Support for Working Families: percentiles") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Female HW" 2 "Male HW") rows(1)) plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12")) // xlabel(-3.12 "5th" -0.64 "25th" 1.27 "50th" 3.57 "75th" 12.48 "95th") 
-
-// Unpaid labor - est
-logistic had_first_birth i.relationship_duration c.structural_familism_t2 i.housework_bkt_t2_imp c.structural_familism_t2#i.housework_bkt_t2_imp `controls' if housework_bkt_t2_imp < 4 & state_fips!=11 
-outreg2 using "$results/first_birth_no_imp.xls", sideway stats(coef pval) label ctitle(HW T2) dec(2) eform alpha(0.001, 0.01, 0.05, 0.10) symbol(***, **, *, +) append
-
-sum structural_familism_t2, detail
-margins, dydx(housework_bkt_t2_imp) at(structural_familism_t2=(`r(min)'(1)`r(max)'))
-marginsplot, xtitle("Structural Support for Working Families") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Female HW" 2 "Male HW") rows(1)) plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12")) ci1opts(lwidth(*1.5))
-
-// Both
-// local controls "age_woman age_woman_sq couple_age_diff i.educ_type_t2 i.couple_joint_religion_t2 i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t2_ln i.moved_states_lag"
-// logistic had_first_birth i.relationship_duration c.structural_familism_t2 i.hours_housework_t2 c.structural_familism_t2#i.hours_housework_t2 `controls' if state_fips!=11 
-// sum structural_familism_t2, detail
-// margins, dydx(hours_housework_t2) at(structural_familism_t2=(`r(min)'(1)`r(max)'))
-// marginsplot, xtitle("Structural Support for Working Families: percentiles") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Second Shift" 2 "Traditional" 3 "Counter" 4 "Other") rows(1)) plot3opts(lcolor("gs13") mcolor("gs13")) ci3opts(color("gs13")) plot4opts(lcolor("gs8") mcolor("gs8")) ci4opts(color("gs8"))
-
-// Both - est
-logistic had_first_birth i.relationship_duration c.structural_familism_t2 i.hours_housework_t2_imp c.structural_familism_t2#i.hours_housework_t2_imp `controls' if state_fips!=11 
-outreg2 using "$results/first_birth_no_imp.xls", sideway stats(coef pval) label ctitle(Combined T2) dec(2) eform alpha(0.001, 0.01, 0.05, 0.10) symbol(***, **, *, +) append
-
-sum structural_familism_t2, detail
-margins, dydx(hours_housework_t2_imp) at(structural_familism_t2=(`r(min)'(1)`r(max)'))
-marginsplot, xtitle("Structural Support for Working Families") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Second Shift" 2 "Traditional" 3 "Counter" 4 "Other") rows(1)) plot1opts(lcolor("pink") mcolor("pink")) ci1opts(color("pink")) plot2opts(lcolor("midblue") mcolor("midblue")) ci2opts(color("midblue")) plot3opts(lcolor("gs13") mcolor("none")) ci3opts(color("gs13")) plot4opts(lcolor("gs8") mcolor("none")) ci4opts(color("gs8"))
-
-********************************************************************************
-**# * Figures for CLIC
-* Using time t-2
-********************************************************************************
-local controls "age_woman age_woman_sq couple_age_diff i.educ_type_t2 i.couple_joint_religion_t2 i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t2_ln i.moved_states_lag"
-logistic had_first_birth i.relationship_duration i.hh_hours_type_t2 `controls' if hh_hours_type_t2 < 4
-margins, dydx(hh_hours_type_t2) level(90) post
+global controls "age_woman age_woman_sq couple_age_diff i.educ_type i.couple_joint_religion i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t1_ln i.moved_last_two"
+
+mi estimate: logistic had_first_birth i.relationship_duration i.hh_hours_type_t1 $controls, or
+mimrgns hh_hours_type_t1, predict(pr)
+mimrgns, dydx(hh_hours_type_t1) predict(pr) post
 estimates store est1
 
-logistic had_first_birth i.relationship_duration i.hh_earn_type_t2 `controls' if hh_earn_type_t2 < 4
-margins, dydx(hh_earn_type_t2) level(90) post
+mi estimate: logistic had_first_birth i.relationship_duration i.hh_earn_type_t1 $controls, or
+mimrgns hh_earn_type_t1, predict(pr)
+mimrgns, dydx(hh_earn_type_t1) predict(pr) post
+estimates store est1a
+
+mi estimate: logistic had_first_birth i.relationship_duration i.couple_work_t1 $controls, or
+mimrgns couple_work_t1, predict(pr)
+mimrgns, dydx(couple_work_t1) predict(pr) post
+estimates store est1b
+
+coefplot (est1, nokey) (est1a, nokey) (est1b, nokey), drop(4.hh_hours_type_t1 4.hh_earn_type_t1) base nolabel xline(0) ///
+coeflabels(1.hh_hours_type_t1 = "Dual Earner" 2.hh_hours_type_t1 = "Male Breadwinner" 3.hh_hours_type_t1 = "Female Breadwinner" 1.hh_earn_type_t1 = "Dual Earner" 2.hh_earn_type_t1 = "Male Breadwinner" 3.hh_earn_type_t1 = "Female Breadwinner" 1.couple_work_t1 = "Male Breadwinner" 2.couple_work_t1 = "1.5 Male Breadwinner" 3.couple_work_t1 = "Dual FT" 4.couple_work_t1 = "Female Breadwinner" 5.couple_work_t1 = "Underwork") headings(1.hh_hours_type_t1= "{bf:Division of Work Hours}"  1.hh_earn_type_t1 = "{bf:Division of Earnings}"   1.couple_work_t1 = "{bf:Employment Status}")
+
+mi estimate: logistic had_first_birth i.relationship_duration i.housework_bkt_t1 $controls, or
+mimrgns housework_bkt_t1,  predict(pr)
+mimrgns, dydx(housework_bkt_t1)  predict(pr) post
 estimates store est2
 
-logistic had_first_birth i.relationship_duration i.housework_bkt_t2_imp `controls' if housework_bkt_t2_imp < 4
-margins, dydx(housework_bkt_t2_imp) level(90) post
+mi estimate: logistic had_first_birth i.relationship_duration i.hours_housework_t1 $controls, or
+mimrgns hours_housework_t1, predict(pr)
+mimrgns, dydx(hours_housework_t1) predict(pr) post
 estimates store est3
 
-logistic had_first_birth i.relationship_duration i.hours_housework_t2_imp `controls'
-margins, dydx(hours_housework_t2_imp) level(90) post
+mi estimate: logistic had_first_birth i.relationship_duration fertility_factor_t1 $controls if state_fips!=11, or
+mimrgns, at(fertility_factor_t1=(-1(1)3)) cmdmargins predict(pr)
+marginsplot
+mimrgns, dydx(fertility_factor_t1) predict(pr) post
 estimates store est4
 
-coefplot est1 est2 est3 est4,  drop(_cons) nolabel xline(0) levels(90)
+mi estimate: logistic had_first_birth i.relationship_duration prek_enrolled_public_t1 $controls if state_fips!=11, or
+mimrgns, dydx(prek_enrolled_public_t1) predict(pr) post
+estimates store est4a
+
+mi estimate: logistic had_first_birth i.relationship_duration i.paid_leave_t1 $controls if state_fips!=11, or
+mimrgns, dydx(paid_leave_t1) predict(pr) post
+estimates store est4b
 
 set scheme cleanplots
 
-coefplot (est1, offset(.20) nokey lcolor("dkgreen") mcolor("dkgreen") ciopts(color("dkgreen"))) (est2, offset(.20) nokey lcolor("teal") mcolor("teal") ciopts(color("teal"))) (est3, offset(-.20) nokey lcolor("navy") mcolor("navy") ciopts(color("navy"))) (est4, offset(-.20) nokey), drop(_cons) xline(0) levels(90) base xtitle(Average Marginal Effect Relative to Egalitarian Arrangement, size(small)) ///
-coeflabels(2.hh_hours_type_t2 = "Male Breadwinner" 3.hh_hours_type_t2 = "Female Breadwinner" 2.hh_earn_type_t2 = "Male Breadwinner" 3.hh_earn_type_t2 = "Female Breadwinner" 1.housework_bkt_t2_imp = "Dual Housework" 2.housework_bkt_t2_imp = "Female Housework" 3.housework_bkt_t2_imp = "Male Housework" 1.hours_housework_t2_imp = "Egalitarian" 2.hours_housework_t2_imp = "Her Second Shift" 3.hours_housework_t2_imp = "Traditional" 4.hours_housework_t2_imp = "Counter Traditional" 5.hours_housework_t2_imp = "All Others") ///
- headings(1.hh_hours_type_t2= "{bf:Division of Work Hours}"   1.hh_earn_type_t2 = "{bf:Division of Earnings}"   1.housework_bkt_t2_imp = "{bf:Division of Housework}"  1.hours_housework_t2_imp = "{bf:Combined Division of Labor}")
- // (est3, offset(-.20) label(College)) 
- 
-local controls "age_woman age_woman_sq couple_age_diff i.educ_type_t2 i.couple_joint_religion_t2 i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t2_ln i.moved_states_lag"
-logistic had_first_birth i.relationship_duration structural_familism_t2 `controls' if state_fips!=11 
-margins, at(structural_familism_t2=(-5(1)10))
-marginsplot, ytitle(Predicted Probability of First Birth) xtitle(Structural Support for Working Families) plot1opts(lcolor("eltgreen") mcolor("eltgreen")) ci1opts(color("eltgreen"))
-margins, dydx(structural_familism_t2)
+coefplot (est1, nokey) (est2, nokey) (est3, nokey) (est4, nokey) (est4a, nokey) (est4b, nokey), base drop(4.hh_hours_type_t1 4.hh_earn_type_t1 4.housework_bkt_t1) nolabel xline(0) xtitle(Average Marginal Effects, size(small)) ///
+coeflabels(1.hh_hours_type_t1 = "Dual Earner" 2.hh_hours_type_t1 = "Male Breadwinner" 3.hh_hours_type_t1 = "Female Breadwinner"  1.housework_bkt_t1 = "Dual Housework" 2.housework_bkt_t1 = "Female Housework" 3.housework_bkt_t1 = "Male Housework" 1.hours_housework_t1 = "Egalitarian" 2.hours_housework_t1 = "Her Second Shift" 3.hours_housework_t1 = "Traditional" 4.hours_housework_t1 = "Counter Traditional" 5.hours_housework_t1 = "All Others" fertility_factor_t1= "Combined Policy" prek_enrolled_public_t1= "Public Pre-K Coverage" 0.paid_leave_t1 = "No Paid Leave" 1.paid_leave_t1 = "Paid Leave") ///
+ headings(1.hh_hours_type_t1= "{bf:Division of Work Hours}"  1.housework_bkt_t1 = "{bf:Division of Housework}" 1.hours_housework_t1 = "{bf:Combined Division of Labor}" fertility_factor_t1="{bf:Work-Family Policy}")
 
-// oh, should I do t-1 for appendix gah probably
-local controls "age_woman age_woman_sq couple_age_diff i.educ_type_t1 i.couple_joint_religion_t1 i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t1_ln i.moved_states_lag"
-logistic had_first_birth i.relationship_duration i.hh_hours_type_t1 `controls' if hh_hours_type_t1 < 4
-margins, dydx(hh_hours_type_t1) level(90) post
-estimates store est5
+// coefplot (est1, offset(.20) nokey lcolor("dkgreen") mcolor("dkgreen") ciopts(color("dkgreen"))) (est2, offset(.20) nokey lcolor("teal") mcolor("teal") ciopts(color("teal")))
 
-logistic had_first_birth i.relationship_duration i.hh_earn_type_t1 `controls' if hh_earn_type_t1 < 4
-margins, dydx(hh_earn_type_t1) level(90) post
-estimates store est6
+********************************************************************************
+********************************************************************************
+********************************************************************************
+**# Key interactions with structural support measures
+********************************************************************************
+********************************************************************************
+********************************************************************************
 
-logistic had_first_birth i.relationship_duration i.housework_bkt_t1_imp `controls' if housework_bkt_t1_imp < 4
-margins, dydx(housework_bkt_t1_imp) level(90) post
-estimates store est7
+********************************************************************************
+**Factor variable (t1)
+********************************************************************************
 
-logistic had_first_birth i.relationship_duration i.hours_housework_t1_imp `controls'
-margins, dydx(hours_housework_t1_imp) level(90) post
-estimates store est8
+// Paid labor hours
+mi estimate: logistic had_first_birth i.relationship_duration c.fertility_factor_t1 i.hh_hours_type_t1 c.fertility_factor_t1#i.hh_hours_type_t1 $controls if state_fips!=11, or
+// outreg2 using "$results/first_birth_cons.xls", sideway stats(coef pval) label ctitle(Hours T1) dec(2) eform alpha(0.001, 0.01, 0.05, 0.10) symbol(***, **, *, +) replace
 
-coefplot est5 est6 est7 est8,  drop(_cons) nolabel xline(0) levels(90)
+mimrgns, dydx(hh_hours_type_t1) at(fertility_factor_t1=(-1(0.5)2)) predict(pr) cmdmargins
+marginsplot, xtitle("Structural Support for Working Families") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Male BW" 2 "Female BW" 3 "No Earners") rows(1)) // plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12")) ci1opts(lwidth(*1.5))
 
-set scheme cleanplots
+	// alt charts
+	mi estimate: logistic had_first_birth i.relationship_duration c.fertility_factor_t1 i.hh_hours_type_t1 c.fertility_factor_t1#i.hh_hours_type_t1 $controls ///
+	if state_fips!=11, or
+	mimrgns, dydx(2.hh_hours_type_t1) at(fertility_factor_t1=(-1(0.5)2)) predict(pr) cmdmargins post
+	estimates store est5
 
-coefplot (est5, offset(.20) nokey lcolor("dkgreen") mcolor("dkgreen") ciopts(color("dkgreen"))) (est6, offset(.20) nokey lcolor("teal") mcolor("teal") ciopts(color("teal"))) (est7, offset(-.20) nokey lcolor("navy") mcolor("navy") ciopts(color("navy"))) (est8, offset(-.20) nokey), drop(_cons) xline(0) levels(90) base xtitle(Average Marginal Effect Relative to Egalitarian Arrangement, size(small)) ///
-coeflabels(2.hh_hours_type_t1 = "Male Breadwinner" 3.hh_hours_type_t1 = "Female Breadwinner" 2.hh_earn_type_t1 = "Male Breadwinner" 3.hh_earn_type_t1 = "Female Breadwinner" 1.housework_bkt_t1_imp = "Dual Housework" 2.housework_bkt_t1_imp = "Female Housework" 3.housework_bkt_t1_imp = "Male Housework" 1.hours_housework_t1_imp = "Egalitarian" 2.hours_housework_t1_imp = "Her Second Shift" 3.hours_housework_t1_imp = "Traditional" 4.hours_housework_t1_imp = "Counter Traditional" 5.hours_housework_t1_imp = "All Others") ///
- headings(1.hh_hours_type_t1= "{bf:Division of Work Hours}"   1.hh_earn_type_t1 = "{bf:Division of Earnings}"   1.housework_bkt_t1_imp = "{bf:Division of Housework}"  1.hours_housework_t1_imp = "{bf:Combined Division of Labor}")
- // (est3, offset(-.20) label(College)) 
- 
-local controls "age_woman age_woman_sq couple_age_diff i.educ_type_t1 i.couple_joint_religion_t1 i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t1_ln i.moved_states_lag"
-logistic had_first_birth i.relationship_duration structural_familism_t1 `controls' if state_fips!=11 
-margins, at(structural_familism_t1=(-5(1)10))
-marginsplot, ytitle(Predicted Probability of First Birth) xtitle(Structural Support for Working Families) plot1opts(lcolor("eltgreen") mcolor("eltgreen")) ci1opts(color("eltgreen"))
-margins, dydx(structural_familism_t1)
+	mi estimate: logistic had_first_birth i.relationship_duration c.fertility_factor_t1 i.hh_hours_type_t1 c.fertility_factor_t1#i.hh_hours_type_t1 $controls ///
+	if state_fips!=11, or
+	mimrgns, dydx(3.hh_hours_type_t1) at(fertility_factor_t1=(-1(0.5)2)) predict(pr) cmdmargins post
+	estimates store est6
 
+	coefplot (est5, mcolor(navy) ciopts(color(navy)) label("Male BW")) (est6, label("Female BW")),  drop(_cons) nolabel xline(0, lcolor("red")) levels(95) ///
+	coeflabels(1._at = "-1.0" 2._at = "-0.5" 3._at = "0" 4._at = "0.5" 5._at = "1.0" 6._at = "1.5" 7._at = "2.0") ///
+	xtitle(Average Marginal Effect Relative to Dual-Earning, size(small)) legend(position(bottom) rows(1)) groups(?._at = "{bf:Structural Support Scale}", angle(vertical))
+
+// Unpaid labor
+mi estimate: logistic had_first_birth i.relationship_duration c.fertility_factor_t1 i.housework_bkt_t1 c.fertility_factor_t1#i.housework_bkt_t1 $controls if state_fips!=11, or
+// outreg2 using "$results/first_birth_cons.xls", sideway stats(coef pval) label ctitle(HW T1) dec(2) eform alpha(0.001, 0.01, 0.05, 0.10) symbol(***, **, *, +) append
+
+mimrgns, dydx(housework_bkt_t1) at(fertility_factor_t1=(-1(0.5)2)) predict(pr) cmdmargins
+marginsplot, xtitle("Structural Support for Working Families") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Female HW" 2 "Male HW") rows(1)) plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12")) ci1opts(lwidth(*1.5))
+
+	// alt charts
+	mi estimate: logistic had_first_birth i.relationship_duration c.fertility_factor_t1 i.housework_bkt_t1 c.fertility_factor_t1#i.housework_bkt_t1 $controls ///
+	if state_fips!=11, or
+	mimrgns, dydx(2.housework_bkt_t1) at(fertility_factor_t1=(-1(0.5)2)) predict(pr) cmdmargins post
+	estimates store est7
+
+	mi estimate: logistic had_first_birth i.relationship_duration c.fertility_factor_t1 i.housework_bkt_t1 c.fertility_factor_t1#i.housework_bkt_t1 $controls ///
+	if state_fips!=11, or
+	mimrgns, dydx(3.housework_bkt_t1) at(fertility_factor_t1=(-1(0.5)2)) predict(pr) cmdmargins post
+	estimates store est8
+
+	coefplot (est7, mcolor(navy) ciopts(color(navy)) label("Female HW")) (est8, label("Male HW")),  drop(_cons) nolabel xline(0, lcolor("red")) levels(95) ///
+	coeflabels(1._at = "-1.0" 2._at = "-0.5" 3._at = "0" 4._at = "0.5" 5._at = "1.0" 6._at = "1.5" 7._at = "2.0") ///
+	xtitle(Average Marginal Effect Relative to Dual Housework, size(small)) legend(position(bottom) rows(1)) groups(?._at = "{bf:Structural Support Scale}", angle(vertical))
+
+// Both
+mi estimate: logistic had_first_birth i.relationship_duration c.fertility_factor_t1 i.hours_housework_t1 c.fertility_factor_t1#i.hours_housework_t1 $controls if state_fips!=11, or
+// outreg2 using "$results/first_birth_cons.xls", sideway stats(coef pval) label ctitle(Combined T1) dec(2) eform alpha(0.001, 0.01, 0.05, 0.10) symbol(***, **, *, +) append
+
+mimrgns, dydx(hours_housework_t1) at(fertility_factor_t1=(-1(0.5)2)) predict(pr) cmdmargins
+marginsplot, xtitle("Structural Support for Working Families") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Second Shift" 2 "Traditional" 3 "Counter" 4 "Other") rows(1)) plot1opts(lcolor("pink") mcolor("pink")) ci1opts(color("pink")) plot2opts(lcolor("midblue") mcolor("midblue")) ci2opts(color("midblue")) plot3opts(lcolor("gs13") mcolor("none")) ci3opts(color("gs13")) plot4opts(lcolor("gs8") mcolor("none")) ci4opts(color("gs8"))
+
+	// alt charts
+	mi estimate: logistic had_first_birth i.relationship_duration c.fertility_factor_t1 i.hours_housework_t1 c.fertility_factor_t1#i.hours_housework_t1 $controls ///
+	if state_fips!=11, or
+	mimrgns, dydx(2.hours_housework_t1) at(fertility_factor_t1=(-1(0.5)2)) predict(pr) cmdmargins post
+	estimates store est9
+
+	mi estimate: logistic had_first_birth i.relationship_duration c.fertility_factor_t1 i.hours_housework_t1 c.fertility_factor_t1#i.hours_housework_t1 $controls  ///
+	if state_fips!=11, or
+	mimrgns, dydx(3.hours_housework_t1) at(fertility_factor_t1=(-1(0.5)2)) predict(pr) cmdmargins post
+	estimates store est10
+
+	mi estimate: logistic had_first_birth i.relationship_duration c.fertility_factor_t1 i.hours_housework_t1 c.fertility_factor_t1#i.hours_housework_t1 $controls  ///
+	if state_fips!=11, or
+	mimrgns, dydx(4.hours_housework_t1) at(fertility_factor_t1=(-1(0.5)2)) predict(pr) cmdmargins post
+	estimates store est11
+	
+	mi estimate: logistic had_first_birth i.relationship_duration c.fertility_factor_t1 i.hours_housework_t1 c.fertility_factor_t1#i.hours_housework_t1 $controls  ///
+	if state_fips!=11, or
+	mimrgns, dydx(5.hours_housework_t1) at(fertility_factor_t1=(-1(0.5)2)) predict(pr) cmdmargins post
+	estimates store est12
+
+	coefplot (est9, mcolor(navy) ciopts(color(navy)) label("Second Shift")) (est10, label("Traditional")) (est11, label("Counter-Trad")) (est12, label("Other")) ///
+	,  drop(_cons) nolabel xline(0, lcolor("red")) levels(95) ///
+	coeflabels(1._at = "-1.0" 2._at = "-0.5" 3._at = "0" 4._at = "0.5" 5._at = "1.0" 6._at = "1.5" 7._at = "2.0") ///
+	xtitle(Average Marginal Effect Relative to Egalitarian, size(small)) legend(position(bottom) rows(1)) groups(?._at = "{bf:Structural Support Scale}", angle(vertical))
+
+********************************************************************************	
+**Pubic Pre-K Enrollment
+********************************************************************************
+// -fvset clear _all-
+
+// Paid labor hours
+mi estimate: logistic had_first_birth i.relationship_duration c.prek_enrolled_public_t1 i.hh_hours_type_t1 c.prek_enrolled_public_t1#i.hh_hours_type_t1 $controls if state_fips!=11, or
+sum prek_enrolled_public_t1, detail
+mimrgns, dydx(hh_hours_type_t1) at(prek_enrolled_public_t1=(`r(min)'(.05)`r(max)')) predict(pr) cmdmargins
+marginsplot, xtitle("Public Pre-K Enrollment") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Male BW" 2 "Female BW" 3 "No Earners") rows(1)) // plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12")) ci1opts(lwidth(*1.5))
+
+	// alt charts
+	mi estimate: logistic had_first_birth i.relationship_duration c.prek_enrolled_public_t1 i.hh_hours_type_t1 c.prek_enrolled_public_t1#i.hh_hours_type_t1 $controls ///
+	if state_fips!=11, or
+	sum prek_enrolled_public_t1, detail
+	mimrgns, dydx(2.hh_hours_type_t1) at(prek_enrolled_public_t1=(`r(p10)' `r(p25)' `r(p50)' `r(p75)' `r(p90)')) predict(pr) cmdmargins post
+	estimates store est5a
+
+	mi estimate: logistic had_first_birth i.relationship_duration c.prek_enrolled_public_t1 i.hh_hours_type_t1 c.prek_enrolled_public_t1#i.hh_hours_type_t1 $controls ///
+	if state_fips!=11, or
+	sum prek_enrolled_public_t1, detail
+	mimrgns, dydx(3.hh_hours_type_t1) at(prek_enrolled_public_t1=(`r(p10)' `r(p25)' `r(p50)' `r(p75)' `r(p90)')) predict(pr) cmdmargins post
+	estimates store est6a
+
+	coefplot (est5b, mcolor(navy) ciopts(color(navy)) label("Male BW")) (est6b, label("Female BW")),  drop(_cons) nolabel xline(0, lcolor("red")) levels(95) ///
+	coeflabels(1._at = "10th ptile" 2._at = "25th ptile" 3._at = "50th ptile" 4._at = "75th ptile" 5._at = "90th ptile") ///
+	xtitle(Average Marginal Effect Relative to Dual-Earning, size(small)) legend(position(bottom) rows(1)) groups(?._at = "{bf:Pre-K Enrollment}", angle(vertical))
+
+// Unpaid labor
+mi estimate: logistic had_first_birth i.relationship_duration c.prek_enrolled_public_t1 i.housework_bkt_t1 c.prek_enrolled_public_t1#i.housework_bkt_t1 $controls if state_fips!=11, or
+sum prek_enrolled_public_t1, detail
+mimrgns, dydx(housework_bkt_t1) at(prek_enrolled_public_t1=(`r(min)'(.05)`r(max)')) predict(pr) cmdmargins
+marginsplot, xtitle("Public Pre-K Enrollment") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Female HW" 2 "Male HW") rows(1)) plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12")) ci1opts(lwidth(*1.5))
+
+	// alt charts
+	mi estimate: logistic had_first_birth i.relationship_duration c.prek_enrolled_public_t1 i.housework_bkt_t1 c.prek_enrolled_public_t1#i.housework_bkt_t1 $controls ///
+	if state_fips!=11, or
+	sum prek_enrolled_public_t1, detail
+	mimrgns, dydx(2.housework_bkt_t1) at(prek_enrolled_public_t1=(`r(p10)' `r(p25)' `r(p50)' `r(p75)' `r(p90)')) predict(pr) cmdmargins post
+	estimates store est7a
+
+	mi estimate: logistic had_first_birth i.relationship_duration c.prek_enrolled_public_t1 i.housework_bkt_t1 c.prek_enrolled_public_t1#i.housework_bkt_t1 $controls ///
+	if state_fips!=11, or
+	sum prek_enrolled_public_t1, detail
+	mimrgns, dydx(3.housework_bkt_t1) at(prek_enrolled_public_t1=(`r(p10)' `r(p25)' `r(p50)' `r(p75)' `r(p90)')) predict(pr) cmdmargins post
+	estimates store est8a
+
+	coefplot (est7a, mcolor(navy) ciopts(color(navy)) label("Female HW")) (est8a, label("Male HW")),  drop(_cons) nolabel xline(0, lcolor("red")) levels(95) ///
+	coeflabels(1._at = "10th ptile" 2._at = "25th ptile" 3._at = "50th ptile" 4._at = "75th ptile" 5._at = "90th ptile") ///
+	xtitle(Average Marginal Effect Relative to Dual Housework, size(small)) legend(position(bottom) rows(1)) groups(?._at = "{bf:Pre-K Enrollment}", angle(vertical))
+
+// Both
+mi estimate: logistic had_first_birth i.relationship_duration c.prek_enrolled_public_t1 i.hours_housework_t1 c.prek_enrolled_public_t1#i.hours_housework_t1 $controls if state_fips!=11, or
+sum prek_enrolled_public_t1, detail
+mimrgns, dydx(hours_housework_t1) at(prek_enrolled_public_t1=(`r(min)'(.05)`r(max)')) predict(pr) cmdmargins
+marginsplot, xtitle("Public Pre-K Enrollment") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Second Shift" 2 "Traditional" 3 "Counter" 4 "Other") rows(1)) plot1opts(lcolor("pink") mcolor("pink")) ci1opts(color("pink")) plot2opts(lcolor("midblue") mcolor("midblue")) ci2opts(color("midblue")) plot3opts(lcolor("gs13") mcolor("none")) ci3opts(color("gs13")) plot4opts(lcolor("gs8") mcolor("none")) ci4opts(color("gs8"))
+
+	// alt charts
+	mi estimate: logistic had_first_birth i.relationship_duration c.prek_enrolled_public_t1 i.hours_housework_t1 c.prek_enrolled_public_t1#i.hours_housework_t1 $controls ///
+	if state_fips!=11, or
+	sum prek_enrolled_public_t1, detail
+	mimrgns, dydx(2.hours_housework_t1) at(prek_enrolled_public_t1=(`r(p10)' `r(p25)' `r(p50)' `r(p75)' `r(p90)')) predict(pr) cmdmargins post
+	estimates store est9a
+
+	mi estimate: logistic had_first_birth i.relationship_duration c.prek_enrolled_public_t1 i.hours_housework_t1 c.prek_enrolled_public_t1#i.hours_housework_t1 $controls ///
+	if state_fips!=11, or
+	sum prek_enrolled_public_t1, detail
+	mimrgns, dydx(3.hours_housework_t1) at(prek_enrolled_public_t1=(`r(p10)' `r(p25)' `r(p50)' `r(p75)' `r(p90)')) predict(pr) cmdmargins post
+	estimates store est10a
+
+	mi estimate: logistic had_first_birth i.relationship_duration c.prek_enrolled_public_t1 i.hours_housework_t1 c.prek_enrolled_public_t1#i.hours_housework_t1 $controls ///
+	if state_fips!=11, or
+	sum prek_enrolled_public_t1, detail
+	mimrgns, dydx(4.hours_housework_t1) at(prek_enrolled_public_t1=(`r(p10)' `r(p25)' `r(p50)' `r(p75)' `r(p90)')) predict(pr) cmdmargins post
+	estimates store est11a
+	
+	mi estimate: logistic had_first_birth i.relationship_duration c.prek_enrolled_public_t1 i.hours_housework_t1 c.prek_enrolled_public_t1#i.hours_housework_t1 $controls ///
+	if state_fips!=11, or
+	sum prek_enrolled_public_t1, detail
+	mimrgns, dydx(5.hours_housework_t1) at(prek_enrolled_public_t1=(`r(p10)' `r(p25)' `r(p50)' `r(p75)' `r(p90)')) predict(pr) cmdmargins post
+	estimates store est12a
+
+	coefplot (est9a, mcolor(navy) ciopts(color(navy)) label("Second Shift")) (est10a, label("Traditional")) (est11a, label("Counter-Trad")) (est12a, label("Other")) ///
+	,  drop(_cons) nolabel xline(0, lcolor("red")) levels(95) ///
+	coeflabels(1._at = "10th ptile" 2._at = "25th ptile" 3._at = "50th ptile" 4._at = "75th ptile" 5._at = "90th ptile") ///
+	xtitle(Average Marginal Effect Relative to Egalitarian, size(small)) legend(position(bottom) rows(1)) groups(?._at = "{bf:Pre-K Enrollment}", angle(vertical))
+
+
+********************************************************************************
+**Paid Leave
+********************************************************************************
+// Paid labor hours
+mi estimate: logistic had_first_birth i.relationship_duration i.paid_leave_t1 i.hh_hours_type_t1_x i.paid_leave_t1#i.hh_hours_type_t1_x $controls if state_fips!=11, or
+mimrgns, dydx(hh_hours_type_t1_x) at(paid_leave_t1=(0 1)) predict(pr) cmdmargins
+marginsplot, xtitle("Paid Leave") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Male BW" 2 "Female BW") rows(1)) // plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12")) ci1opts(lwidth(*1.5))
+
+	// alt charts
+	mi estimate: logistic had_first_birth i.relationship_duration i.paid_leave_t1 i.hh_hours_type_t1_x i.paid_leave_t1#i.hh_hours_type_t1_x $controls ///
+	if state_fips!=11, or
+	mimrgns, dydx(2.hh_hours_type_t1_x) at(paid_leave_t1=(0 1)) predict(pr) cmdmargins post
+	estimates store est5b
+
+	mi estimate: logistic had_first_birth i.relationship_duration i.paid_leave_t1 i.hh_hours_type_t1_x i.paid_leave_t1#i.hh_hours_type_t1_x $controls ///
+	if state_fips!=11, or
+	mimrgns, dydx(3.hh_hours_type_t1_x) at(paid_leave_t1=(0 1)) predict(pr) cmdmargins post
+	estimates store est6b
+
+	coefplot (est5b, mcolor(navy) ciopts(color(navy)) label("Male BW")) (est6b, label("Female BW")),  drop(_cons) nolabel xline(0, lcolor("red")) levels(95) ///
+	coeflabels(1._at = "No Paid Leave" 2._at = "Has Paid Leave") ///
+	xtitle(Average Marginal Effect Relative to Dual-Earning, size(small)) legend(position(bottom) rows(1)) groups(?._at = "{bf:Paid Leave Status}", angle(vertical))
+	
+// Unpaid labor
+mi estimate: logistic had_first_birth i.relationship_duration i.paid_leave_t1 i.housework_bkt_t1 i.paid_leave_t1#i.housework_bkt_t1 $controls if state_fips!=11, or
+mimrgns, dydx(housework_bkt_t1) at(paid_leave_t1=(0 1)) predict(pr) cmdmargins
+marginsplot, xtitle("Paid Leave") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Female HW" 2 "Male HW") rows(1)) plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12")) ci1opts(lwidth(*1.5))
+
+	// alt charts
+	mi estimate: logistic had_first_birth i.relationship_duration i.paid_leave_t1 i.housework_bkt_t1 i.paid_leave_t1#i.housework_bkt_t1 $controls ///
+	if state_fips!=11, or
+	mimrgns, dydx(2.housework_bkt_t1) at(paid_leave_t1=(0 1)) predict(pr) cmdmargins post
+	estimates store est7b
+
+	mi estimate: logistic had_first_birth i.relationship_duration i.paid_leave_t1 i.housework_bkt_t1 i.paid_leave_t1#i.housework_bkt_t1 $controls ///
+	if state_fips!=11, or
+	mimrgns, dydx(3.housework_bkt_t1) at(paid_leave_t1=(0 1)) predict(pr) cmdmargins post
+	estimates store est8b
+
+	coefplot (est7b, mcolor(navy) ciopts(color(navy)) label("Female HW")) (est8b, label("Male HW")),  drop(_cons) nolabel xline(0, lcolor("red")) levels(95) ///
+	coeflabels(1._at = "No Paid Leave" 2._at = "Has Paid Leave") ///
+	xtitle(Average Marginal Effect Relative to Dual Housework, size(small)) legend(position(bottom) rows(1)) groups(?._at = "{bf:Paid Leave Status}", angle(vertical))
+
+// Both
+mi estimate: logistic had_first_birth i.relationship_duration i.paid_leave_t1 i.hours_housework_t1 i.paid_leave_t1#i.hours_housework_t1 $controls if state_fips!=11, or
+mimrgns, dydx(hours_housework_t1) at(paid_leave_t1=(0 1)) predict(pr) cmdmargins
+marginsplot, xtitle("Paid Leave") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Second Shift" 2 "Traditional" 3 "Counter" 4 "Other") rows(1)) plot1opts(lcolor("pink") mcolor("pink")) ci1opts(color("pink")) plot2opts(lcolor("midblue") mcolor("midblue")) ci2opts(color("midblue")) plot3opts(lcolor("gs13") mcolor("none")) ci3opts(color("gs13")) plot4opts(lcolor("gs8") mcolor("none")) ci4opts(color("gs8"))
+
+	// alt charts
+	mi estimate: logistic had_first_birth i.relationship_duration i.paid_leave_t1 i.hours_housework_t1 i.paid_leave_t1#i.hours_housework_t1 $controls ///
+	if state_fips!=11, or
+	mimrgns, dydx(2.hours_housework_t1) at(paid_leave_t1=(0 1)) predict(pr) cmdmargins post
+	estimates store est9b
+
+	mi estimate: logistic had_first_birth i.relationship_duration i.paid_leave_t1 i.hours_housework_t1 i.paid_leave_t1#i.hours_housework_t1 $controls ///
+	if state_fips!=11, or
+	mimrgns, dydx(3.hours_housework_t1) at(paid_leave_t1=(0 1)) predict(pr) cmdmargins post
+	estimates store est10b
+
+	mi estimate: logistic had_first_birth i.relationship_duration i.paid_leave_t1 i.hours_housework_t1 i.paid_leave_t1#i.hours_housework_t1 $controls ///
+	if state_fips!=11, or
+	mimrgns, dydx(4.hours_housework_t1) at(paid_leave_t1=(0 1)) predict(pr) cmdmargins post
+	estimates store est11b
+	
+	mi estimate: logistic had_first_birth i.relationship_duration i.paid_leave_t1 i.hours_housework_t1 i.paid_leave_t1#i.hours_housework_t1 $controls ///
+	if state_fips!=11, or
+	mimrgns, dydx(5.hours_housework_t1) at(paid_leave_t1=(0 1)) predict(pr) cmdmargins post
+	estimates store est12b
+
+	coefplot (est9b, mcolor(navy) ciopts(color(navy)) label("Second Shift")) (est10b, label("Traditional")) (est11b, label("Counter-Trad")) (est12b, label("Other")) ///
+	,  drop(_cons) nolabel xline(0, lcolor("red")) levels(95) ///
+	coeflabels(1._at = "No Paid Leave" 2._at = "Has Paid Leave") ///
+	xtitle(Average Marginal Effect Relative to Egalitarian, size(small)) legend(position(bottom) rows(1)) groups(?._at = "{bf:Paid Leave Status}", angle(vertical))
+
+
+********************************************************************************
+********************************************************************************
 ********************************************************************************
 **# Robustness check: relationship after 2005 (t-2)
 ********************************************************************************
+********************************************************************************
+********************************************************************************
+// Not Yet Updated
+
+/*
 local controls "age_woman age_woman_sq couple_age_diff i.educ_type_t2 i.couple_joint_religion_t2 i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t2_ln i.moved_states_lag"
 logistic had_first_birth i.relationship_duration i.hh_hours_type_t2 `controls' if hh_hours_type_t2 < 4 & rel_start_yr>=2005
 margins, dydx(hh_hours_type_t2) level(90) post
@@ -570,10 +425,15 @@ logistic had_first_birth i.relationship_duration c.structural_familism_t2 i.hour
 sum structural_familism_t2, detail
 margins, dydx(hours_housework_t2_imp) at(structural_familism_t2=(`r(min)'(1)`r(max)'))
 marginsplot, xtitle("Structural Support for Working Families") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Second Shift" 2 "Traditional" 3 "Counter" 4 "Other") rows(1)) plot1opts(lcolor("pink") mcolor("pink")) ci1opts(color("pink")) plot2opts(lcolor("midblue") mcolor("midblue")) ci2opts(color("midblue")) plot3opts(lcolor("gs13") mcolor("none")) ci3opts(color("gs13")) plot4opts(lcolor("gs8") mcolor("none")) ci4opts(color("gs8"))
-
+*/
+********************************************************************************
+********************************************************************************
 ********************************************************************************
 **# Descriptive statistics
 ********************************************************************************
+********************************************************************************
+********************************************************************************
+
 // main IVs t: hh_hours_type hh_earn_type housework_bkt hours_housework couple_work structural_familism_t
 // t-1: hh_hours_type_t1 hh_earn_type_t1 housework_bkt_t1_imp hours_housework_t1_imp couple_work_t1 structural_familism_t1
 // t-2: hh_hours_type_t2 hh_earn_type_t2 housework_bkt_t2_imp hours_housework_t2_imp couple_work_t2 structural_familism_t2

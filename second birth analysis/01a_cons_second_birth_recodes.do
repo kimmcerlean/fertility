@@ -600,23 +600,43 @@ replace marital_status_use = 2 if marital_status_updated==. | inlist(marital_sta
 tab marital_status_use, m
 tab first_marital_status marital_status_use, m
 
-/*
-// get lagged structural measure - need to add original structural measure as well. BUT first need to figure out if this is what I want to use
-rename structural_familism structural_familism_t
+save "$created_data/PSID_second_birth_sample_cons_RECODED.dta", replace
 
-mi passive: gen year_t1 = survey_yr - 1
-mi merge m:1 year_t1 state_fips using "$states/structural_familism.dta",keep(match master) // gen(howmatch) keepusing(structural_familism)
-capture drop if howmatch==2
+********************************************************************************
+**# Add structural support measures - now and lagged
+********************************************************************************
+use "$created_data/PSID_second_birth_sample_cons_RECODED.dta", clear
 
-drop f1 state_name concat disapproval genderroles_egal working_mom_egal preschool_egal fepresch fechld fefam month_rent annual_rent month_own annual_own annual_housing hhincome rent_afford own_afford house_afford min_wage min_above_fed unemployment unemployment_comp right2work gdp gender_lfp_gap_nocoll gender_lfp_gap_coll paid_leave cc_cost cc_pct_income educ_spend cc_subsidies senate_dems house_dems gender_discrimin_ban equalpay contraceptive_coverage abortion_protected unemployment_percap prek_enrolled prek_enrolled_public state earn_ratio lfp_ratio pov_ratio pctfemaleleg dv_guns gender_mood child_pov welfare_all welfare_cash_asst ccdf_direct ccdf_total ccdf_per_cap population cc_eligible cc_pct_served cc_served cc_served_percap educ_spend_percap gini earn_ratio_z pctmaleleg no_paid_leave no_dv_gun_law senate_rep house_rep gender_mood_neg earn_ratio_st lfp_ratio_st pov_ratio_st pctfemaleleg_st senate_dems_st house_dems_st dv_guns_st gender_mood_st pctmaleleg_st no_paid_leave_st no_dv_gun_law_st senate_rep_st house_rep_st gender_mood_neg_st structural_sexism maternal_employment parent_earn_ratio gdp_per_cap unemployment_neg cc_pct_income_neg earn_ratio_neg parent_earn_ratio_neg min_below_fed child_pov_neg welfare_neg welfare_cash_neg gdp_neg gdp_percap_neg unemployment_neg_st min_above_fed_st paid_leave_st cc_pct_income_neg_st earn_ratio_neg_st cc_subsidies_st unemployment_st cc_pct_income_st min_below_fed_st child_pov_st child_pov_neg_st min_wage_st welfare_all_st welfare_cash_asst_st welfare_neg_st welfare_cash_neg_st ccdf_direct_st ccdf_per_cap_st cc_served_percap_st cc_pct_served_st educ_spend_st educ_spend_percap_st parent_earn_ratio_st parent_earn_ratio_neg_st maternal_employment_st gdp_st gdp_neg_st gdp_per_cap_st gdp_percap_neg_st gini_st gender_discrimin_ban_st equalpay_st contraceptive_coverage_st abortion_protected_st unemployment_percap_st prek_enrolled_st prek_enrolled_public_st
+drop structural_familism // going to add the new ones
+
+global state_vars "min_wage federal_min min_above_fed min_amt_above_fed unemployment_percap paid_leave paid_leave_length earn_ratio parent_earn_ratio abortion_protected_cspp abortion_protected prek_enrolled prek_enrolled_public welfare_all welfare_cash_asst population earn_ratio_neg parent_earn_ratio_neg min_wage_st min_above_fed_st min_amt_above_fed_st paid_leave_st paid_leave_length_st earn_ratio_st earn_ratio_neg_st parent_earn_ratio_st parent_earn_ratio_neg_st welfare_all_st welfare_cash_asst_st abortion_protected_st unemployment_percap_st prek_enrolled_st prek_enrolled_public_st structural_familism_v0 structural_familism sf_centered structural_factor fertility_factor"
+
+rename survey_yr year
+mi merge m:1 year state_fips using "$states/structural_familism_2021.dta", keep(match master) // gen(howmatch) keepusing(structural_familism)
+
+foreach var in $state_vars{
+	rename `var' `var'_t
+}
+
+drop year_t1 year_t2
+
+// lagged
+gen year_t1 = year - 1
+
+mi merge m:1 year_t1 state_fips using "$states/structural_familism_2021.dta",keep(match master) // gen(howmatch) keepusing(structural_familism)
+
+foreach var in $state_vars{
+	rename `var' `var'_t1
+}
+
+drop year_t2
 
 mi update
 
-rename structural_familism structural_familism_t1
+rename year survey_yr
 
-sort unique_id partner_id survey_yr
-browse unique_id partner_id survey_yr state_fips structural_fam*
-*/
+sort _mi_m unique_id partner_id survey_yr
+browse unique_id partner_id survey_yr state_fips fertility_factor_t fertility_factor_t1 paid_leave_length_t paid_leave_length_t1 structural_fam*
 
 // final update and save
 
