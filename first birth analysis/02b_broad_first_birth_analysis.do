@@ -3,7 +3,7 @@
 * Project: Policy and Fertility
 * Owner: Kimberly McErlean
 * Started: October 2024
-* File: cons_first_birth_analysis
+* File: broad_first_birth_analysis
 ********************************************************************************
 ********************************************************************************
 
@@ -12,8 +12,8 @@
 ********************************************************************************
 * This files takes the first birth sample and runs analysis
 
-// created in file 1a
-use "$created_data/PSID_first_birth_sample_cons_RECODED.dta", clear
+// created in file 2a
+use "$created_data/PSID_first_birth_sample_broad_RECODED.dta", clear
 
 browse unique_id partner_id survey_yr rel_start_all marital_status_use relationship_duration had_first_birth joint_first_birth joint_first_birth_yr
 
@@ -46,7 +46,7 @@ https://www.statalist.org/forums/forum/general-stata-discussion/general/307763-m
 ********************************************************************************
 
 // with controls - per that Rindfuss article, do I need to interact age with these variables? bc some variables affect timing of births more than birth itself (and might have negative impact on timing but positive on completed fertility)
-global controls "age_woman age_woman_sq couple_age_diff i.educ_type i.couple_joint_religion i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t1_ln i.moved_last_two"
+global controls "age_woman age_woman_sq couple_age_diff i.educ_type i.couple_joint_religion i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t1_ln i.moved_last_two i.any_births_pre_rel"
 
 mi estimate: logistic had_first_birth i.relationship_duration i.hh_hours_type_t1 $controls, or
 mimrgns hh_hours_type_t1, predict(pr)
@@ -279,19 +279,19 @@ marginsplot, xtitle("Public Pre-K Enrollment") yline(0,lcolor(gs3))  ytitle("Ave
 **Paid Leave
 ********************************************************************************
 // Paid labor hours
-mi estimate: logistic had_first_birth i.relationship_duration i.paid_leave_t1 i.hh_hours_type_t1_x i.paid_leave_t1#i.hh_hours_type_t1_x $controls if state_fips!=11, or
-mimrgns, dydx(hh_hours_type_t1_x) at(paid_leave_t1=(0 1)) predict(pr) cmdmargins
+mi estimate: logistic had_first_birth i.relationship_duration i.paid_leave_t1 i.hh_hours_type_t1 i.paid_leave_t1#i.hh_hours_type_t1 $controls if state_fips!=11, or
+mimrgns, dydx(hh_hours_type_t1) at(paid_leave_t1=(0 1)) predict(pr) cmdmargins
 marginsplot, xtitle("Paid Leave") yline(0,lcolor(gs3))  ytitle("Average Marginal Effects: First Birth") title("") legend(position(6) ring(3) order(1 "Male BW" 2 "Female BW") rows(1)) // plot2opts(lcolor("gs12") mcolor("gs12")) ci2opts(color("gs12")) ci1opts(lwidth(*1.5))
 
 	// alt charts
-	mi estimate: logistic had_first_birth i.relationship_duration i.paid_leave_t1 i.hh_hours_type_t1_x i.paid_leave_t1#i.hh_hours_type_t1_x $controls ///
+	mi estimate: logistic had_first_birth i.relationship_duration i.paid_leave_t1 i.hh_hours_type_t1 i.paid_leave_t1#i.hh_hours_type_t1 $controls ///
 	if state_fips!=11, or
-	mimrgns, dydx(2.hh_hours_type_t1_x) at(paid_leave_t1=(0 1)) predict(pr) cmdmargins post
+	mimrgns, dydx(2.hh_hours_type_t1) at(paid_leave_t1=(0 1)) predict(pr) cmdmargins post
 	estimates store est5b
 
-	mi estimate: logistic had_first_birth i.relationship_duration i.paid_leave_t1 i.hh_hours_type_t1_x i.paid_leave_t1#i.hh_hours_type_t1_x $controls ///
+	mi estimate: logistic had_first_birth i.relationship_duration i.paid_leave_t1 i.hh_hours_type_t1 i.paid_leave_t1#i.hh_hours_type_t1 $controls ///
 	if state_fips!=11, or
-	mimrgns, dydx(3.hh_hours_type_t1_x) at(paid_leave_t1=(0 1)) predict(pr) cmdmargins post
+	mimrgns, dydx(3.hh_hours_type_t1) at(paid_leave_t1=(0 1)) predict(pr) cmdmargins post
 	estimates store est6b
 
 	coefplot (est5b, mcolor(navy) ciopts(color(navy)) label("Male BW")) (est6b, label("Female BW")),  drop(_cons) nolabel xline(0, lcolor("red")) levels(95) ///
@@ -446,7 +446,7 @@ foreach var in hh_hours_type hh_earn_type housework_bkt hours_housework couple_w
 	tab `var', gen(`var')
 }
 
-putexcel set "$results/First_birth-descriptives_cons", replace
+putexcel set "$results/First_birth-descriptives_broad", replace
 putexcel B1:C1 = "Time t", merge border(bottom)
 putexcel D1:E1 = "Time t-1", merge border(bottom)
 putexcel F1:G1 = "Time t-2", merge border(bottom)
