@@ -456,8 +456,24 @@ mi estimate: proportion hours_housework hours_housework_t1
 tab hours_housework imputed, col 
 tab hours_housework_t1 imputed, col 
 
+// detailed version
+mi passive: gen hours_housework_det_t1=.
+mi passive: replace hours_housework_det_t1=1 if hh_hours_type_t1==1 & housework_bkt_t1==1 // dual both (egal)
+mi passive: replace hours_housework_det_t1=2 if hh_hours_type_t1==1 & housework_bkt_t1==2 // dual earner, female HM (second shift)
+mi passive: replace hours_housework_det_t1=3 if hh_hours_type_t1==2 & housework_bkt_t1==2 // male BW, female HM (traditional)
+mi passive: replace hours_housework_det_t1=4 if hh_hours_type_t1==3 & housework_bkt_t1==3 // female BW, male HM (counter-traditional)
+mi passive: replace hours_housework_det_t1=5 if hh_hours_type_t1==3 & inlist(housework_bkt_t1,1,2) // all other female BW
+mi passive: replace hours_housework_det_t1=6 if inlist(ft_pt_t1_woman,0,1) & inlist(ft_pt_t1_man,0,1) // underwork
+mi passive: replace hours_housework_det_t1=7 if hours_housework_det_t1==. & hh_hours_type_t1!=. & housework_bkt_t1!=. // all others
+
+label define hours_housework_det 1 "Egalitarian" 2 "Second Shift" 3 "Traditional" 4 "Counter Traditional" 5 "All Other Female BW" 6 "Underwork" 7 "All others"
+label values hours_housework_det_t1 hours_housework_det 
+mi estimate: proportion hours_housework_det_t1 hours_housework_t1
+
+tab hh_hours_type_t1 housework_bkt_t1 if hours_housework_det_t1==7
+
 // Stata assert command to check new variables created from imputed  
-foreach var in weekly_hrs_t_man weekly_hrs_t_woman weekly_hrs_t1_man weekly_hrs_t1_woman earnings_t_man earnings_t_woman earnings_t1_man earnings_t1_woman housework_man housework_woman housework_t1_man housework_t1_woman educ_fixed_man educ_fixed_woman raceth_fixed_man raceth_fixed_woman educ_type couple_educ_gp couple_earnings  hh_earn_type couple_earnings_t1  hh_earn_type_t1 couple_hours  hh_hours_type couple_hours_t1 hh_hours_type_t1 ft_pt_woman ft_pt_t1_woman ft_pt_man ft_pt_t1_man couple_work couple_work_ow couple_work_t1 couple_work_ow_t1 couple_housework  housework_bkt couple_housework_t1  housework_bkt_t1  hours_housework hours_housework_t1{  
+foreach var in weekly_hrs_t_man weekly_hrs_t_woman weekly_hrs_t1_man weekly_hrs_t1_woman earnings_t_man earnings_t_woman earnings_t1_man earnings_t1_woman housework_man housework_woman housework_t1_man housework_t1_woman educ_fixed_man educ_fixed_woman raceth_fixed_man raceth_fixed_woman educ_type couple_educ_gp couple_earnings  hh_earn_type couple_earnings_t1  hh_earn_type_t1 couple_hours  hh_hours_type couple_hours_t1 hh_hours_type_t1 ft_pt_woman ft_pt_t1_woman ft_pt_man ft_pt_t1_man couple_work couple_work_ow couple_work_t1 couple_work_ow_t1 couple_housework  housework_bkt couple_housework_t1  housework_bkt_t1  hours_housework hours_housework_t1 hours_housework_det_t1{  
 	// inspect `var' if _mi_m != 0  
 	assert `var' != . if _mi_m != 0  
 } 
@@ -606,9 +622,14 @@ save "$created_data/PSID_second_birth_sample_broad_RECODED.dta", replace
 ********************************************************************************
 use "$created_data/PSID_second_birth_sample_broad_RECODED.dta", clear
 
-drop structural_familism // going to add the new ones
+capture drop structural_familism // going to add the new ones
 
-global state_vars "min_wage federal_min min_above_fed min_amt_above_fed unemployment_percap paid_leave paid_leave_length earn_ratio parent_earn_ratio abortion_protected_cspp abortion_protected prek_enrolled prek_enrolled_public welfare_all welfare_cash_asst population earn_ratio_neg parent_earn_ratio_neg min_wage_st min_above_fed_st min_amt_above_fed_st paid_leave_st paid_leave_length_st earn_ratio_st earn_ratio_neg_st parent_earn_ratio_st parent_earn_ratio_neg_st welfare_all_st welfare_cash_asst_st abortion_protected_st unemployment_percap_st prek_enrolled_st prek_enrolled_public_st structural_familism_v0 structural_familism sf_centered structural_factor fertility_factor"
+global state_vars "min_wage federal_min min_above_fed min_amt_above_fed unemployment_percap paid_leave paid_leave_length earn_ratio parent_earn_ratio abortion_protected_cspp abortion_protected prek_enrolled prek_enrolled_public welfare_all welfare_cash_asst population earn_ratio_neg parent_earn_ratio_neg min_wage_st min_above_fed_st min_amt_above_fed_st paid_leave_st paid_leave_length_st earn_ratio_st earn_ratio_neg_st parent_earn_ratio_st parent_earn_ratio_neg_st welfare_all_st welfare_cash_asst_st abortion_protected_st unemployment_percap_st prek_enrolled_st prek_enrolled_public_st structural_familism_v0 structural_familism sf_centered structural_factor fertility_factor fertility_factor_det"
+
+foreach var in $state_vars{
+	capture drop `var'_t
+	capture drop `var'_t1
+}
 
 rename survey_yr year
 mi merge m:1 year state_fips using "$states/structural_familism_2021.dta", keep(match master) // gen(howmatch) keepusing(structural_familism)
@@ -635,7 +656,7 @@ mi update
 rename year survey_yr
 
 sort _mi_m unique_id partner_id survey_yr
-browse unique_id partner_id survey_yr state_fips fertility_factor_t fertility_factor_t1 paid_leave_length_t paid_leave_length_t1 structural_fam*
+browse unique_id partner_id survey_yr state_fips fertility_factor_t fertility_factor_t1 fertility_factor_det_t fertility_factor_det_t1 paid_leave_length_t paid_leave_length_t1 structural_fam*
 
 // final update and save
 
