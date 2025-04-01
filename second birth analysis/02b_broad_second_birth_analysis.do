@@ -15,6 +15,12 @@
 // created in step 2a
 use "$created_data/PSID_second_birth_sample_broad_RECODED.dta", clear
 
+unique unique_id partner_id
+unique unique_id partner_id if _mi_m==0
+unique unique_id partner_id if _mi_m==1
+unique unique_id partner_id if had_second_birth==1
+unique unique_id partner_id if _mi_m==0, by(had_second_birth)
+
 tab relationship_duration had_second_birth, row m 
 tab time_since_first_birth had_second_birth, row m 
 
@@ -275,9 +281,9 @@ marginsplot, xtitle("Structural Support for Working Families") yline(0,lcolor(gs
 mi estimate: logistic had_second_birth i.time_since_first_birth c.wife_housework_pct_t1_x c.fertility_factor_det_t1 c.wife_housework_pct_t1_x#c.fertility_factor_det_t1 $controls i.state_fips if state_fips!=11, or
 sum fertility_factor_det_t1, detail
 mimrgns, dydx(wife_housework_pct_t1_x) at(fertility_factor_det_t1=(`r(p10)' `r(p25)' `r(p50)' `r(p75)' `r(p90)')) predict(pr) cmdmargins post
-stimates store esth
+estimates store esth
 
-coefplot (esth, nokey),  xline(0, lcolor("black")) levels(95) coeflabels(1._at = "10th ptile" 2._at = "25th ptile" 3._at = "50th ptile" 4._at = "75th ptile" 5._at = "90th ptile") ///
+coefplot (esth, nokey mcolor("36 128 196") ciopts(color("36 128 196"))),  xline(0, lcolor("black")) levels(95) coeflabels(1._at = "10th ptile" 2._at = "25th ptile" 3._at = "50th ptile" 4._at = "75th ptile" 5._at = "90th ptile") ///
 xtitle(Average Marginal Effects) groups(?._at = "{bf:Work-Family Policy Scale}", angle(vertical))
 
 // Both: Simpler (for ease)
