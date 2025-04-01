@@ -556,135 +556,370 @@ marginsplot, xtitle("Structural Support for Working Families") yline(0,lcolor(gs
 */
 
 ********************************************************************************
+********************************************************************************
+********************************************************************************
 **# Descriptive statistics
 ********************************************************************************
-// main IVs t: hh_hours_type hh_earn_type housework_bkt hours_housework couple_work structural_familism_t
-// t-1: hh_hours_type_t1 hh_earn_type_t1 housework_bkt_t1_imp hours_housework_t1_imp couple_work_t1 structural_familism_t1
-// t-2: hh_hours_type_t2 hh_earn_type_t2 housework_bkt_t2_imp hours_housework_t2_imp couple_work_t2 structural_familism_t2
-// for ref: local controls "age_woman age_woman_sq couple_age_diff i.educ_type_t1 i.couple_joint_religion_t1 i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t1_ln i.moved_states_lag" 
-// relationship_duration
+********************************************************************************
+********************************************************************************
+
+// main IVs t: hh_hours_type housework_bkt hours_housework couple_work fertility_factor_det_t
+// t-1: hh_hours_type_t1 housework_bkt_t1 hours_housework_t1 couple_work_t1 fertility_factor_det_t1
+// controls: age_woman age_woman_sq couple_age_diff i.educ_type i.couple_joint_religion i.raceth_fixed_woman i.couple_same_race i.marital_status_use couple_earnings_t1_ln i.moved_last_two i.any_births_pre_rel weekly_hrs_t1_woman housework_t1_woman
+// time since first birth relationship_duration
+// for broad: also add premarital births (any_births_pre_rel)
 
 tab hh_hours_type housework_bkt, cell nofreq
 
-foreach var in hh_hours_type hh_earn_type housework_bkt hours_housework couple_work hh_hours_type_t1 hh_earn_type_t1 housework_bkt_t1_imp hours_housework_t1_imp couple_work_t1 hh_hours_type_t2 hh_earn_type_t2 housework_bkt_t2_imp hours_housework_t2_imp couple_work_t2 educ_type educ_type_t1 educ_type_t2 couple_joint_religion couple_joint_religion_t1 couple_joint_religion_t2 raceth_fixed_woman couple_same_race marital_status_use moved_states_lag{
-	tab `var', gen(`var')
-}
-
-putexcel set "$results/Second_birth-descriptives_cons", replace
+putexcel set "$results/Second_birth_descriptives-cons", replace
 putexcel B1:C1 = "Time t", merge border(bottom)
 putexcel D1:E1 = "Time t-1", merge border(bottom)
-putexcel F1:G1 = "Time t-2", merge border(bottom)
-putexcel B2 = ("All") C2 = ("Had Second Birth") D2 = ("All") E2 = ("Had Second Birth") F2 = ("All") G2 = ("Had Second Birth")
+putexcel B2 = ("All") C2 = ("Had Second Birth") D2 = ("All") E2 = ("Had Second Birth")
 putexcel A3 = "Unique Couples"
 
-putexcel A4 = "Dual Earning (Hours)"
-putexcel A5 = "Male Breadwinner (Hours)"
-putexcel A6 = "Female Breadwinner (Hours)"
-putexcel A7 = "Dual Earning ($)"
-putexcel A8 = "Male Breadwinner ($)"
-putexcel A9 = "Female Breadwinner ($)"
-putexcel A10 = "Dual Housework"
-putexcel A11 = "Female Primary HW"
-putexcel A12 = "Male Primary HW"
-putexcel A13 = "Egalitarian"
-putexcel A14 = "Second Shift"
-putexcel A15 = "Traditional"
-putexcel A16 = "Counter-Traditional"
-putexcel A17 = "All Others"
-putexcel A18 = "Male BW"
-putexcel A19 = "Male 1.5 BW"
-putexcel A20 = "Dual FT"
-putexcel A21 = "Female BW"
-putexcel A22 = "Under Work"
-putexcel A23 = "Structural Support for Working Families"
+putexcel A4 = "Dual Earning"
+putexcel A5 = "Male Breadwinner"
+putexcel A6 = "Female Breadwinner"
+putexcel A7 = "Dual Housework"
+putexcel A8 = "Female Primary HW"
+putexcel A9 = "Male Primary HW"
+putexcel A10 = "Egalitarian"
+putexcel A11 = "Second Shift"
+putexcel A12 = "Traditional"
+putexcel A13 = "Counter-Traditional"
+putexcel A14 = "All Others"
+putexcel A15 = "Male BW"
+putexcel A16 = "Male 1.5 BW"
+putexcel A17 = "Dual FT"
+putexcel A18 = "Female BW"
+putexcel A19 = "Under Work"
+putexcel A20 = "Woman's Average Weekly Work Hours"
+putexcel A21 = "Man's Average Weekly Work Hours"
+putexcel A22 = "Woman's Average Weekly Housework"
+putexcel A23 = "Man's Average Weekly Housework"
+putexcel A24 = "Total Couple Earnings"
+putexcel A25 = "Work-Family Policy Support"
 
-putexcel A24 = "Woman's age"
-putexcel A25 = "Man's age"
-putexcel A26 = "Relationship duration"
-putexcel A27 = "Time Since first birth"
-putexcel A28 = "Married"
-putexcel A29 = "Cohab"
-putexcel A30 = "Total Couple Earnings"
-putexcel A31 = "Neither College Degree"
-putexcel A32 = "His College Degree"
-putexcel A33 = "Her College Degree"
-putexcel A34 = "Both College Degree"
-putexcel A35 = "Both No Religion"
-putexcel A36 = "Both Catholic"
-putexcel A37 = "Both Protestant"
-putexcel A38 = "One Catholic"
-putexcel A39 = "One No Religion"
-putexcel A40 = "Other Religion"
-putexcel A41 = "Woman's Race: NH White"
-putexcel A42 = "Woman's Race: Black"
-putexcel A43 = "Woman's Race: Hispanic"
-putexcel A44 = "Woman's Race: NH Asian"
-putexcel A45 = "Woman's Race: NH Other"
-putexcel A46 = "Husband and wife same race"
-putexcel A47 = "Moved States"
+putexcel A26 = "Woman's age"
+putexcel A27 = "Man's age"
+putexcel A28 = "Relationship duration"
+putexcel A29 = "Time Since First Birth"
 
-local tvars "hh_hours_type1 hh_hours_type2 hh_hours_type3 hh_earn_type1 hh_earn_type2 hh_earn_type3 housework_bkt1 housework_bkt2 housework_bkt3 hours_housework1 hours_housework2 hours_housework3 hours_housework4 hours_housework5 couple_work1 couple_work2 couple_work3 couple_work4 couple_work5 structural_familism_t age_woman age_man relationship_duration time_since_first_birth marital_status_use1 marital_status_use2 couple_earnings educ_type1 educ_type2 educ_type3 educ_type4 couple_joint_religion1 couple_joint_religion2 couple_joint_religion3 couple_joint_religion4 couple_joint_religion5 couple_joint_religion6 raceth_fixed_woman1 raceth_fixed_woman2 raceth_fixed_woman3 raceth_fixed_woman4 raceth_fixed_woman5 couple_same_race2 moved_states_lag2"
-// 44
+putexcel A30 = "Married"
+putexcel A31 = "Cohab"
+putexcel A32 = "Neither College Degree"
+putexcel A33 = "His College Degree"
+putexcel A34 = "Her College Degree"
+putexcel A35 = "Both College Degree"
+putexcel A36 = "Both No Religion"
+putexcel A37 = "Both Catholic"
+putexcel A38 = "Both Protestant"
+putexcel A39 = "One Catholic"
+putexcel A40 = "One No Religion"
+putexcel A41 = "Other Religion"
+putexcel A42 = "Woman's Race: NH White"
+putexcel A43 = "Woman's Race: Black"
+putexcel A44 = "Woman's Race: Hispanic"
+putexcel A45 = "Woman's Race: NH Asian"
+putexcel A46 = "Woman's Race: NH Other"
+putexcel A47 = "Husband and Wife Same Race"
+putexcel A48 = "Moved States"
+putexcel A49 = "Had Premarital Birth"
 
-local t1vars "hh_hours_type_t11 hh_hours_type_t12 hh_hours_type_t13 hh_earn_type_t11 hh_earn_type_t12 hh_earn_type_t13 housework_bkt_t1_imp1 housework_bkt_t1_imp2 housework_bkt_t1_imp3 hours_housework_t1_imp1 hours_housework_t1_imp2 hours_housework_t1_imp3 hours_housework_t1_imp4 hours_housework_t1_imp5 couple_work_t11 couple_work_t12 couple_work_t13 couple_work_t14 couple_work_t15 structural_familism_t1 age_woman age_man relationship_duration time_since_first_birth marital_status_use1 marital_status_use2 couple_earnings_t1 educ_type_t11 educ_type_t12 educ_type_t13 educ_type_t14 couple_joint_religion_t11 couple_joint_religion_t12 couple_joint_religion_t13 couple_joint_religion_t14 couple_joint_religion_t15 couple_joint_religion_t16"
-// 37
+global cont_t "weekly_hrs_t_woman weekly_hrs_t_man housework_woman housework_man couple_earnings fertility_factor_det_t"
+global cont_t1 "weekly_hrs_t1_woman weekly_hrs_t1_man housework_t1_woman housework_t1_man couple_earnings_t1 fertility_factor_det_t1"
+global cont_fixed "age_woman age_man relationship_duration time_since_first_birth"
 
-local t2vars "hh_hours_type_t21 hh_hours_type_t22 hh_hours_type_t23 hh_earn_type_t21 hh_earn_type_t22 hh_earn_type_t23 housework_bkt_t2_imp1 housework_bkt_t2_imp2 housework_bkt_t2_imp3 hours_housework_t2_imp1 hours_housework_t2_imp2 hours_housework_t2_imp3 hours_housework_t2_imp4 hours_housework_t2_imp5 couple_work_t21 couple_work_t22 couple_work_t23 couple_work_t24 couple_work_t25 structural_familism_t1 age_woman age_man relationship_duration time_since_first_birth marital_status_use1 marital_status_use2 couple_earnings_t2 educ_type_t21 educ_type_t22 educ_type_t23 educ_type_t24 couple_joint_religion_t21 couple_joint_religion_t22 couple_joint_religion_t23 couple_joint_religion_t24 couple_joint_religion_t25 couple_joint_religion_t26"
-// 37
-
-// Total Sample, time t
-forvalues w=1/44{
-	local row=`w'+3
-	local var: word `w' of `tvars'
-	mean `var'
-	matrix t`var'= e(b)
-	putexcel B`row' = matrix(t`var'), nformat(#.#%)
+*******************************
+* Time T
+*******************************
+* Hours
+forvalues d=1/3{
+   capture mi passive: gen hh_hours_t`d' = hh_hours_type==`d'
+   mi estimate: mean hh_hours_t`d'
+   matrix h`d' = e(b_mi)
+   local h`d' = h`d'[1,1]
+   local row = 3 +`d'
+   putexcel B`row' = `h`d'', nformat(##.#%)
+   
+   mi estimate, esampvaryok: mean hh_hours_t`d' if had_second_birth==1
+   matrix bh`d' = e(b_mi)
+   local bh`d' = bh`d'[1,1]
+   local row = 3 + `d'
+   putexcel C`row' = `bh`d'', nformat(##.#%)
 }
 
-// those with second birth
-forvalues w=1/44{
-	local row=`w'+3
-	local var: word `w' of `tvars' 
-	mean `var' if had_second_birth==1
-	matrix t`var'= e(b)
-	putexcel C`row' = matrix(t`var'), nformat(#.#%)
+// mi estimate: proportion hh_hours_type educ_type
+// mi estimate: proportion hh_hours_type if had_second_birth==1
+// mi estimate: proportion educ_type if 
+
+* HW
+forvalues d=1/3{
+   capture mi passive: gen housework_bkt_tx`d' = housework_bkt==`d'
+   mi estimate: mean housework_bkt_tx`d'
+   matrix w`d' = e(b_mi)
+   local w`d' = w`d'[1,1]
+   local row = 6 +`d'
+   putexcel B`row' = `w`d'', nformat(##.#%)
+   
+   mi estimate, esampvaryok: mean housework_bkt_tx`d' if had_second_birth==1
+   matrix bw`d' = e(b_mi)
+   local bw`d' = bw`d'[1,1]
+   local row = 6 + `d'
+   putexcel C`row' = `bw`d'', nformat(##.#%)
 }
 
-// Total Sample, time t-1
-forvalues w=1/37{
-	local row=`w'+3
-	local var: word `w' of `t1vars'
-	mean `var'
-	matrix t`var'= e(b)
-	putexcel D`row' = matrix(t`var'), nformat(#.#%)
+* Combined
+forvalues d=1/5{
+   capture mi passive: gen hours_hw_t`d' = hours_housework==`d'
+   mi estimate: mean hours_hw_t`d'
+   matrix c`d' = e(b_mi)
+   local c`d' = c`d'[1,1]
+   local row = 9 +`d'
+   putexcel B`row' = `c`d'', nformat(##.#%)
+   
+   mi estimate, esampvaryok: mean hours_hw_t`d' if had_second_birth==1
+   matrix bc`d' = e(b_mi)
+   local bc`d' = bc`d'[1,1]
+   local row = 9 + `d'
+   putexcel C`row' = `bc`d'', nformat(##.#%)
 }
 
-// those with second birth
-forvalues w=1/37{
-	local row=`w'+3
-	local var: word `w' of `t1vars' 
-	mean `var' if had_second_birth==1
-	matrix t`var'= e(b)
-	putexcel E`row' = matrix(t`var'), nformat(#.#%)
+* Employment
+forvalues d=1/5{
+   capture mi passive: gen couple_work_tx`d' = couple_work==`d'
+   mi estimate: mean couple_work_tx`d'
+   matrix e`d' = e(b_mi)
+   local e`d' = e`d'[1,1]
+   local row = 14 +`d'
+   putexcel B`row' = `e`d'', nformat(##.#%)
+   
+   mi estimate, esampvaryok: mean couple_work_tx`d' if had_second_birth==1
+   matrix be`d' = e(b_mi)
+   local be`d' = be`d'[1,1]
+   local row = 14 + `d'
+   putexcel C`row' = `be`d'', nformat(##.#%)
 }
 
-// Total Sample, time t-2
-forvalues w=1/37{
-	local row=`w'+3
-	local var: word `w' of `t2vars'
-	mean `var'
-	matrix t`var'= e(b)
-	putexcel F`row' = matrix(t`var'), nformat(#.#%)
+* Raw hours
+forvalues w=1/6{
+	local row=`w'+19
+	local var: word `w' of $cont_t
+	
+	mi estimate: mean `var'
+	matrix m`var' = e(b_mi)
+	local m`var' = m`var'[1,1]
+	putexcel B`row' = `m`var'', nformat(#####)
+	
+	mi estimate: mean `var' if had_second_birth==1
+	matrix mb`var' = e(b_mi)
+	local mb`var' = mb`var'[1,1]
+	putexcel C`row' = `mb`var'', nformat(#####)
 }
 
-// those with second birth
-forvalues w=1/37{
-	local row=`w'+3
-	local var: word `w' of `t2vars' 
-	mean `var' if had_second_birth==1
-	matrix t`var'= e(b)
-	putexcel G`row' = matrix(t`var'), nformat(#.#%)
+* Other continuous
+forvalues w=1/4{
+	local row=`w'+25
+	local var: word `w' of $cont_fixed
+	
+	mi estimate: mean `var'
+	matrix c`var' = e(b_mi)
+	local c`var' = c`var'[1,1]
+	putexcel B`row' = `c`var'', nformat(#####)
+	
+	mi estimate: mean `var' if had_second_birth==1
+	matrix cb`var' = e(b_mi)
+	local cb`var' = cb`var'[1,1]
+	putexcel C`row' = `cb`var'', nformat(#####)
 }
 
+* Rel Status
+forvalues d=1/2{
+   capture mi passive: gen rel_status`d' = marital_status_use==`d'
+   mi estimate: mean rel_status`d'
+   matrix r`d' = e(b_mi)
+   local r`d' = r`d'[1,1]
+   local row = 29 +`d'
+   putexcel B`row' = `r`d'', nformat(##.#%)
+   
+   mi estimate, esampvaryok: mean rel_status`d' if had_second_birth==1
+   matrix br`d' = e(b_mi)
+   local br`d' = br`d'[1,1]
+   local row = 29 + `d'
+   putexcel C`row' = `br`d'', nformat(##.#%)
+}
+
+* Education
+forvalues d=1/4{
+   capture gen educ_type`d' = educ_type==`d'
+   mi estimate: mean educ_type`d'
+   matrix ed`d' = e(b_mi)
+   local ed`d' = ed`d'[1,1]
+   local row = 31 +`d'
+   putexcel B`row' = `ed`d'', nformat(##.#%)
+   
+   mi estimate, esampvaryok: mean educ_type`d' if had_second_birth==1
+   matrix bed`d' = e(b_mi)
+   local bed`d' = bed`d'[1,1]
+   local row = 31 + `d'
+   putexcel C`row' = `bed`d'', nformat(##.#%)
+}
+
+* Religion
+forvalues d=0/5{
+   capture gen religion`d' = couple_joint_religion==`d'
+   mi estimate: mean religion`d'
+   matrix re`d' = e(b_mi)
+   local re`d' = re`d'[1,1]
+   local row = 36 +`d' // d is 0 so need 35 NOT 34
+   putexcel B`row' = `re`d'', nformat(##.#%)
+   
+   mi estimate, esampvaryok: mean religion`d' if had_second_birth==1
+   matrix bre`d' = e(b_mi)
+   local bre`d' = bre`d'[1,1]
+   local row = 36 + `d'
+   putexcel C`row' = `bre`d'', nformat(##.#%)
+}
+
+* Women's Race
+forvalues d=1/5{
+   capture gen race_wom`d' = raceth_fixed_woman==`d'
+   mi estimate: mean race_wom`d'
+   matrix ra`d' = e(b_mi)
+   local ra`d' = ra`d'[1,1]
+   local row = 41 +`d'
+   putexcel B`row' = `ra`d'', nformat(##.#%)
+   
+   mi estimate, esampvaryok: mean race_wom`d' if had_second_birth==1
+   matrix bra`d' = e(b_mi)
+   local bra`d' = bra`d'[1,1]
+   local row = 41 + `d'
+   putexcel C`row' = `bra`d'', nformat(##.#%)
+}
+
+* Same Race
+mi estimate: mean couple_same_race
+matrix sr = e(b_mi)
+local sr = sr[1,1]
+putexcel B47 = `sr', nformat(##.#%)
+
+mi estimate, esampvaryok: mean couple_same_race if had_second_birth==1
+matrix bsr = e(b_mi)
+local bsr = bsr[1,1]
+putexcel C47 = `bsr', nformat(##.#%)
+
+* Moved States
+mi estimate: mean moved_last_two
+matrix mov = e(b_mi)
+local mov = mov[1,1]
+putexcel B48 = `mov', nformat(##.#%)
+
+mi estimate, esampvaryok: mean moved_last_two if had_second_birth==1
+matrix bmov = e(b_mi)
+local bmov = bmov[1,1]
+putexcel C48 = `bmov', nformat(##.#%)
+
+* Had Premarital Birth
+mi estimate: mean any_births_pre_rel
+matrix pre = e(b_mi)
+local pre = pre[1,1]
+putexcel B49 = `pre', nformat(##.#%)
+
+mi estimate, esampvaryok: mean any_births_pre_rel if had_second_birth==1
+matrix bpre = e(b_mi)
+local bpre = bpre[1,1]
+putexcel C49 = `bpre', nformat(##.#%)
+
+*******************************
+* Time T-1
+*******************************
+* Hours
+forvalues d=1/3{
+   capture mi passive: gen hh_hours_t1x`d' = hh_hours_type_t1==`d'
+   mi estimate: mean hh_hours_t1x`d'
+   matrix h`d' = e(b_mi)
+   local h`d' = h`d'[1,1]
+   local row = 3 +`d'
+   putexcel D`row' = `h`d'', nformat(##.#%)
+   
+   mi estimate, esampvaryok: mean hh_hours_t1x`d' if had_second_birth==1
+   matrix bh`d' = e(b_mi)
+   local bh`d' = bh`d'[1,1]
+   local row = 3 + `d'
+   putexcel E`row' = `bh`d'', nformat(##.#%)
+}
+
+// mi estimate: proportion hh_hours_type_t1
+// mi estimate: proportion hh_hours_type_t1 if had_second_birth==1
+
+* HW
+forvalues d=1/3{
+   capture mi passive: gen housework_bkt_t1x`d' = housework_bkt_t1==`d'
+   mi estimate: mean housework_bkt_t1x`d'
+   matrix w`d' = e(b_mi)
+   local w`d' = w`d'[1,1]
+   local row = 6 +`d'
+   putexcel D`row' = `w`d'', nformat(##.#%)
+   
+   mi estimate, esampvaryok: mean housework_bkt_t1x`d' if had_second_birth==1
+   matrix bw`d' = e(b_mi)
+   local bw`d' = bw`d'[1,1]
+   local row = 6 + `d'
+   putexcel E`row' = `bw`d'', nformat(##.#%)
+}
+
+* Combined
+forvalues d=1/5{
+   capture mi passive: gen hours_hw_t1x`d' = hours_housework_t1==`d'
+   mi estimate: mean hours_hw_t1x`d'
+   matrix c`d' = e(b_mi)
+   local c`d' = c`d'[1,1]
+   local row = 9 +`d'
+   putexcel D`row' = `c`d'', nformat(##.#%)
+   
+   mi estimate, esampvaryok: mean hours_hw_t1x`d' if had_second_birth==1
+   matrix bc`d' = e(b_mi)
+   local bc`d' = bc`d'[1,1]
+   local row = 9 + `d'
+   putexcel E`row' = `bc`d'', nformat(##.#%)
+}
+
+* Employment
+forvalues d=1/5{
+   capture mi passive: gen couple_work_t1x`d' = couple_work_t1==`d'
+   mi estimate: mean couple_work_t1x`d'
+   matrix e`d' = e(b_mi)
+   local e`d' = e`d'[1,1]
+   local row = 14 +`d'
+   putexcel D`row' = `e`d'', nformat(##.#%)
+   
+   mi estimate, esampvaryok: mean couple_work_t1x`d' if had_second_birth==1
+   matrix be`d' = e(b_mi)
+   local be`d' = be`d'[1,1]
+   local row = 14 + `d'
+   putexcel E`row' = `be`d'', nformat(##.#%)
+}
+
+* Raw hours
+forvalues w=1/6{
+	local row=`w'+19
+	local var: word `w' of $cont_t1
+	
+	mi estimate: mean `var'
+	matrix m`var' = e(b_mi)
+	local m`var' = m`var'[1,1]
+	putexcel D`row' = `m`var'', nformat(#####)
+	
+	mi estimate: mean `var' if had_second_birth==1
+	matrix mb`var' = e(b_mi)
+	local mb`var' = mb`var'[1,1]
+	putexcel E`row' = `mb`var'', nformat(#####)
+}
+
+*******************************
+* Uniques
+*******************************
 unique unique_id partner_id
+unique unique_id partner_id if _mi_m==0
 unique unique_id partner_id if had_second_birth==1
+unique unique_id partner_id if had_second_birth==1 & _mi_m==0
