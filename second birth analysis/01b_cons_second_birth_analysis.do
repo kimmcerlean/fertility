@@ -281,24 +281,24 @@ xtitle(Average Marginal Effects) groups(?._at = "{bf:Work-Family Policy Scale}",
 // taking forever, can I just use dummies? trying to get it to run at least once so I can validate it's the same
 
 mi estimate: logistic had_second_birth i.time_since_first_birth c.fertility_factor_det_t1 i.hours_housework_t1 c.fertility_factor_det_t1#i.hours_housework_t1 $controls i.state_fips if state_fips!=11, or
-estimates save "$results/state_dummies_second_cons", replace
+estimates save "$models/state_dummies_second_cons", replace
 
-estimates use "$results/state_dummies_second_cons"
+estimates use "$models/state_dummies_second_cons"
 sum fertility_factor_det_t1, detail
 mimrgns, dydx(2.hours_housework_t1) at(fertility_factor_det_t1=(`r(p10)' `r(p25)' `r(p50)' `r(p75)' `r(p90)')) predict(pr) cmdmargins post
 estimates store est_d2
 
-estimates use "$results/state_dummies_second_cons"
+estimates use "$models/state_dummies_second_cons"
 sum fertility_factor_det_t1, detail
 mimrgns, dydx(3.hours_housework_t1) at(fertility_factor_det_t1=(`r(p10)' `r(p25)' `r(p50)' `r(p75)' `r(p90)')) predict(pr) cmdmargins post
 estimates store est_d3
 
-estimates use "$results/state_dummies_second_cons"
+estimates use "$models/state_dummies_second_cons"
 sum fertility_factor_det_t1, detail
 mimrgns, dydx(4.hours_housework_t1) at(fertility_factor_det_t1=(`r(p10)' `r(p25)' `r(p50)' `r(p75)' `r(p90)')) predict(pr) cmdmargins post
 estimates store est_d4
 
-estimates use "$results/state_dummies_second_cons"
+estimates use "$models/state_dummies_second_cons"
 sum fertility_factor_det_t1, detail
 mimrgns, dydx(5.hours_housework_t1) at(fertility_factor_det_t1=(`r(p10)' `r(p25)' `r(p50)' `r(p75)' `r(p90)')) predict(pr) cmdmargins post
 estimates store est_d5

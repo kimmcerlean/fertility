@@ -22,6 +22,9 @@ if `"`c(hostname)'"' == "LAPTOP-TP2VHI6B"{
 	* results
 	global results "$homedir/Research Projects/Policy and Fertility/results"
 
+	* model output
+	global models "$homedir/Research Projects/Policy and Fertility/Stata/models"
+	
 	* logdir
 	global logdir "$homedir/Research Projects/Policy and Fertility/Stata/logs"
 
@@ -47,6 +50,9 @@ if `"`c(hostname)'"' == "PPRC-STATS-P01"{
 
 	* results
 	global results "$homedir/Research Projects/Policy and Fertility/results"
+
+	* model output
+	global models "$homedir/Research Projects/Policy and Fertility/Stata/models"
 
 	* logdir
 	global logdir "$homedir/Research Projects/Policy and Fertility/Stata/logs"
